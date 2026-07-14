@@ -1,0 +1,251 @@
+{
+  "users": [
+    {
+      "email": "demo@skillswap.io",
+      "password": "demo123",
+      "display_name": "Muhammad",
+      "provider": "email",
+      "skills_teach": [
+        "Python",
+        "Web Development"
+      ],
+      "skills_learn": [
+        "Video Editing",
+        "UI Design"
+      ],
+      "skill_points": 200,
+      "xp": 450,
+      "level": 3,
+      "heart_tokens_balance": 100,
+      "role": "user",
+      "onboarding_complete": true,
+      "activity_streak": 5,
+      "notification_preferences": {
+        "email_matches": true,
+        "email_sessions": true,
+        "push_enabled": false
+      },
+      "heart_tokens_last_reset": "2026-06-30T09:20:11.034466+00:00",
+      "last_active_at": "2026-06-30T09:22:14.019990+00:00",
+      "created_at": "2026-06-30T09:20:11.034466+00:00",
+      "updated_at": "2026-06-30T09:22:14.019990+00:00",
+      "_id": "1b7969ad-6695-4a13-abd2-14a5b17a1389"
+    },
+    {
+      "email": "roman@skillswap.io",
+      "password": "demo123",
+      "display_name": "Roman",
+      "provider": "google",
+      "skills_teach": [
+        "Video Editing",
+        "Motion Graphics"
+      ],
+      "skills_learn": [
+        "Python"
+      ],
+      "skill_points": 180,
+      "xp": 320,
+      "level": 2,
+      "heart_tokens_balance": 85,
+      "role": "user",
+      "onboarding_complete": true,
+      "activity_streak": 3,
+      "notification_preferences": {
+        "email_matches": true,
+        "email_sessions": true,
+        "push_enabled": false
+      },
+      "heart_tokens_last_reset": "2026-06-30T09:20:11.034466+00:00",
+      "last_active_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:20:16.147429+00:00",
+      "updated_at": "2026-06-30T09:20:16.147429+00:00",
+      "_id": "fba17718-0666-4d85-a9c9-18a6627bb009"
+    },
+    {
+      "email": "arunima@skillswap.io",
+      "password": "demo123",
+      "display_name": "Arunima",
+      "provider": "google",
+      "skills_teach": [
+        "Video Editing",
+        "Photography"
+      ],
+      "skills_learn": [
+        "React"
+      ],
+      "skill_points": 150,
+      "xp": 210,
+      "level": 2,
+      "heart_tokens_balance": 90,
+      "role": "user",
+      "onboarding_complete": true,
+      "activity_streak": 2,
+      "notification_preferences": {
+        "email_matches": true,
+        "email_sessions": true,
+        "push_enabled": false
+      },
+      "heart_tokens_last_reset": "2026-06-30T09:20:11.034466+00:00",
+      "last_active_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:20:21.221687+00:00",
+      "updated_at": "2026-06-30T09:20:21.221687+00:00",
+      "_id": "45ac596f-ca3c-411f-b060-61a51e1c0d4f"
+    },
+    {
+      "email": "rafael@skillswap.io",
+      "password": "demo123",
+      "display_name": "Rafael",
+      "provider": "facebook",
+      "skills_teach": [
+        "Video Editing",
+        "Color Grading"
+      ],
+      "skills_learn": [
+        "JavaScript"
+      ],
+      "skill_points": 140,
+      "xp": 190,
+      "level": 2,
+      "heart_tokens_balance": 75,
+      "role": "user",
+      "onboarding_complete": true,
+      "activity_streak": 1,
+      "notification_preferences": {
+        "email_matches": true,
+        "email_sessions": true,
+        "push_enabled": false
+      },
+      "heart_tokens_last_reset": "2026-06-30T09:20:11.034466+00:00",
+      "last_active_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:20:26.295933+00:00",
+      "updated_at": "2026-06-30T09:20:26.295933+00:00",
+      "_id": "54a44e53-7c6d-4e69-9b72-a5caedb9d1f3"
+    },
+    {
+      "email": "admin@skillswap.io",
+      "password": "admin123",
+      "display_name": "Admin",
+      "provider": "email",
+      "skills_teach": [
+        "Platform Management"
+      ],
+      "skills_learn": [],
+      "skill_points": 999,
+      "xp": 0,
+      "level": 10,
+      "heart_tokens_balance": 100,
+      "role": "admin",
+      "onboarding_complete": true,
+      "activity_streak": 30,
+      "notification_preferences": {
+        "email_matches": true,
+        "email_sessions": true,
+        "push_enabled": false
+      },
+      "heart_tokens_last_reset": "2026-06-30T09:20:11.034466+00:00",
+      "last_active_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:20:31.403966+00:00",
+      "updated_at": "2026-06-30T09:20:31.403966+00:00",
+      "_id": "c8343de9-c970-482f-bed6-68a21e57fb01"
+    }
+  ],
+  "matches": [
+    {
+      "user_a_id": "1b7969ad-6695-4a13-abd2-14a5b17a1389",
+      "user_b_id": "fba17718-0666-4d85-a9c9-18a6627bb009",
+      "skill_offered": "Video Editing",
+      "skill_requested": "Video Editing",
+      "match_score": 58,
+      "status": "pending",
+      "matched_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:20:46.612995+00:00",
+      "updated_at": "2026-06-30T09:20:46.612995+00:00",
+      "_id": "641b6a4a-8fcd-4087-9647-c9fcd9568b9b"
+    },
+    {
+      "user_a_id": "1b7969ad-6695-4a13-abd2-14a5b17a1389",
+      "user_b_id": "45ac596f-ca3c-411f-b060-61a51e1c0d4f",
+      "skill_offered": "Video Editing",
+      "skill_requested": "Video Editing",
+      "match_score": 58,
+      "status": "pending",
+      "matched_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:21:01.917246+00:00",
+      "updated_at": "2026-06-30T09:21:01.917246+00:00",
+      "_id": "11046efb-4d50-4151-b64d-1bf4618d8bde"
+    },
+    {
+      "user_a_id": "1b7969ad-6695-4a13-abd2-14a5b17a1389",
+      "user_b_id": "54a44e53-7c6d-4e69-9b72-a5caedb9d1f3",
+      "skill_offered": "Video Editing",
+      "skill_requested": "Video Editing",
+      "match_score": 58,
+      "status": "pending",
+      "matched_at": "2026-06-30T09:20:11.034466+00:00",
+      "created_at": "2026-06-30T09:21:17.253088+00:00",
+      "updated_at": "2026-06-30T09:21:17.253088+00:00",
+      "_id": "43836f88-8c47-4d5f-915a-1e2a6747831f"
+    }
+  ],
+  "sessions": [
+    {
+      "match_id": null,
+      "host_id": "fba17718-0666-4d85-a9c9-18a6627bb009",
+      "guest_id": "1b7969ad-6695-4a13-abd2-14a5b17a1389",
+      "skill": "Video Editing",
+      "title": "Intro to Video Editing",
+      "description": "Learn basic cuts and transitions",
+      "scheduled_at": "2026-06-30T09:20:11.034466+00:00",
+      "duration_minutes": 60,
+      "timezone": "UTC",
+      "status": "scheduled",
+      "heart_tokens_cost": 10,
+      "xp_awarded": 25,
+      "created_at": "2026-06-30T09:21:22.354735+00:00",
+      "updated_at": "2026-06-30T09:21:22.354735+00:00",
+      "_id": "b42f43b8-e862-41f5-bb06-e65c1e58de6b"
+    }
+  ],
+  "chats": [
+    {
+      "match_id": null,
+      "participants": [
+        "1b7969ad-6695-4a13-abd2-14a5b17a1389",
+        "fba17718-0666-4d85-a9c9-18a6627bb009"
+      ],
+      "last_message_preview": "Hey! Ready for our session?",
+      "last_message_at": "2026-06-30T09:20:11.034466+00:00",
+      "unread_counts": {
+        "1b7969ad-6695-4a13-abd2-14a5b17a1389": 1,
+        "fba17718-0666-4d85-a9c9-18a6627bb009": 0
+      },
+      "created_at": "2026-06-30T09:21:27.477468+00:00",
+      "updated_at": "2026-06-30T09:21:27.477468+00:00",
+      "_id": "a20dda3b-0463-4c9a-bcca-a9ec7ebeb2f2"
+    }
+  ],
+  "messages": [
+    {
+      "chat_id": "a20dda3b-0463-4c9a-bcca-a9ec7ebeb2f2",
+      "sender_id": "fba17718-0666-4d85-a9c9-18a6627bb009",
+      "text": "Hey! Ready for our session?",
+      "type": "text",
+      "created_at": "2026-06-30T09:21:32.535174+00:00",
+      "updated_at": "2026-06-30T09:21:32.535174+00:00",
+      "_id": "97c64af9-987d-4aaf-90f2-855256af727e"
+    }
+  ],
+  "tokens": [
+    {
+      "user_id": "1b7969ad-6695-4a13-abd2-14a5b17a1389",
+      "date": "2026-06-30",
+      "allocated": 100,
+      "spent": 0,
+      "remaining": 100,
+      "transactions": [],
+      "created_at": "2026-06-30T09:21:37.652433+00:00",
+      "updated_at": "2026-06-30T09:21:37.652433+00:00",
+      "_id": "00b1cce9-c694-4b52-8433-670825f63795"
+    }
+  ]
+}
