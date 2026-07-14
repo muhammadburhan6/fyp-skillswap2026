@@ -1,0 +1,84 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Poppins:wght@600;700;800&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-[#0a0e17] text-slate-100 antialiased;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-full bg-sky-400 px-6 py-3 text-sm font-semibold text-[#0a0e17] transition hover:bg-sky-300;
+  }
+  .btn-accent {
+    @apply rounded-full bg-sky-400 px-6 py-3 text-sm font-semibold text-[#0a0e17] transition hover:bg-sky-300;
+  }
+  .btn-outline {
+    @apply rounded-full border border-white/15 bg-white/5 px-6 py-3 text-sm font-semibold text-slate-200 transition hover:border-sky-400/40 hover:bg-white/10 hover:text-white;
+  }
+  .card {
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] p-6 shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl;
+  }
+  .input-field {
+    @apply w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-slate-500 focus:border-sky-400/50 focus:ring-2 focus:ring-sky-400/20;
+  }
+  .section-title,
+  .page-title {
+    @apply font-display text-3xl font-bold tracking-tight text-white sm:text-4xl;
+  }
+  .page-subtitle {
+    @apply mt-2 text-sm text-slate-400;
+  }
+
+  .dash-main {
+    background:
+      radial-gradient(ellipse 80% 60% at 50% 40%, rgba(56, 189, 248, 0.12), transparent 70%),
+      #0a0e17;
+  }
+
+  .dash-glass {
+    @apply rounded-2xl border border-white/10 bg-white/[0.04] shadow-[0_8px_32px_rgba(0,0,0,0.35)] backdrop-blur-xl;
+  }
+
+  .dash-glass-inner {
+    @apply rounded-2xl border border-white/10 bg-white/[0.03] backdrop-blur-md;
+  }
+
+  .dash-shell .text-muted {
+    @apply text-slate-400;
+  }
+
+  .dash-shell .stat-value {
+    @apply text-2xl font-bold text-sky-300;
+  }
+
+  .dash-shell .badge {
+    @apply rounded-full bg-sky-400/15 px-3 py-1 text-xs font-semibold text-sky-300;
+  }
+
+  .dash-shell table th {
+    @apply text-slate-500;
+  }
+
+  .dash-shell table td {
+    @apply border-t border-white/10 py-3 text-slate-300;
+  }
+
+  .dash-shell select option {
+    @apply bg-[#121826] text-white;
+  }
+
+  .auth-shell {
+    background:
+      radial-gradient(ellipse 70% 50% at 50% 30%, rgba(56, 189, 248, 0.1), transparent 70%),
+      #0a0e17;
+  }
+}
+
+.font-display {
+  font-family: Poppins, Inter, sans-serif;
+}

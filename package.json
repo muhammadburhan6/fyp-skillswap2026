@@ -1,0 +1,19 @@
+{
+  "name": "skillswap",
+  "private": true,
+  "scripts": {
+    "postinstall": "npm install --prefix frontend",
+    "dev": "npm run dev:all",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "dev:backend": "backend\\venv\\Scripts\\python backend\\app.py",
+    "dev:all": "concurrently -k -n backend,frontend -c blue,green \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "db:up": "docker compose up -d mysql",
+    "db:down": "docker compose down",
+    "db:setup": "powershell -ExecutionPolicy Bypass -File scripts/setup-mysql.ps1",
+    "build": "npm run build --prefix frontend",
+    "preview": "npm run preview --prefix frontend"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
