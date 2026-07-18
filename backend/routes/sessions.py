@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 
 from database.models import PointsTransaction, Session as SwapSession, SessionLocal, Skill, User
+from services.gamification_service import award_xp, check_and_award_badges
 from services.learning_path_service import generate_learning_path, normalize_duration, normalize_level
+from services.notification_service import notify
 from utils.auth_middleware import require_auth
 from utils.serializers import user_to_dict
 
@@ -91,6 +93,12 @@ def create_session(user):
             meeting_link=data.get("meeting_link", ""),
         )
         db.add(session)
+        db.flush()
+
+        other_id = session.learner_id if session.teacher_id == user.id else session.teacher_id
+        if other_id and other_id != user.id:
+            notify(db, other_id, "session_booked", {"session_id": session.id, "from_user_id": user.id})
+
         db.commit()
         return jsonify({"session": {"id": session.id, "status": session.status}}), 201
     finally:
@@ -109,10 +117,21 @@ def update_session(user, session_id):
         if "status" in data:
             s.status = data["status"]
             if data["status"] == "completed" and s.teacher_id:
+                db.flush()  # SessionLocal has autoflush=False; badge checks below query session status directly
                 teacher = db.query(User).get(s.teacher_id)
                 teacher.points_balance += 15
-                teacher.xp += 25
+                award_xp(db, teacher, 25)
                 db.add(PointsTransaction(user_id=teacher.id, amount=15, reason="teach_session", session_id=s.id))
+                check_and_award_badges(db, teacher.id)
+
+                if s.learner_id and s.learner_id != s.teacher_id:
+                    learner = db.query(User).get(s.learner_id)
+                    if learner:
+                        award_xp(db, learner, 15)
+                        check_and_award_badges(db, learner.id)
+                        notify(db, learner.id, "session_completed", {"session_id": s.id})
+
+                notify(db, teacher.id, "session_completed", {"session_id": s.id})
         if "meeting_link" in data:
             s.meeting_link = data["meeting_link"]
         db.commit()

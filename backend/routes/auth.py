@@ -2,7 +2,8 @@ from flask import Blueprint, jsonify, request
 
 from config import Config
 from database.models import SessionLocal, User
-from services.email_service import send_password_reset
+from services.email_service import send_password_reset, send_welcome
+from services.points_service import record_signup_bonus
 from utils.jwt_utils import decode_token, generate_purpose_token, generate_token
 from utils.limiter import limiter
 from utils.passwords import hash_password, verify_password
@@ -28,6 +29,8 @@ def login():
         user = db.query(User).filter_by(email=email).first()
         if not user or not verify_password(user.password_hash, password):
             return jsonify({"error": "Invalid email or password"}), 401
+        if user.status in ("suspended", "banned"):
+            return jsonify({"error": "Your account has been suspended. Contact support."}), 403
         token = generate_token(user.id, user.role)
         return jsonify({"user": user_to_dict(user), "token": token})
     finally:
@@ -52,10 +55,21 @@ def register():
         if db.query(User).filter_by(email=email).first():
             return jsonify({"error": "An account with this email already exists"}), 409
 
-        user = User(name=name, email=email, password_hash=hash_password(password))
+        user = User(
+            name=name,
+            email=email,
+            password_hash=hash_password(password),
+            has_seen_welcome_popup=False,
+        )
         db.add(user)
+        db.flush()  # assign user.id
+        record_signup_bonus(db, user)
         db.commit()
         db.refresh(user)
+        try:
+            send_welcome(user.email, user.name)
+        except Exception:
+            pass  # account creation must never fail because of email
         token = generate_token(user.id, user.role)
         return jsonify({"user": user_to_dict(user), "token": token}), 201
     except Exception:

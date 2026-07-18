@@ -10,7 +10,23 @@ def user_to_dict(user, include_skills=True):
         "level": user.level,
         "streak": user.streak,
         "role": user.role,
+        "status": getattr(user, "status", None) or "active",
         "onboarding_complete": user.onboarding_complete,
+        "has_seen_welcome_popup": bool(getattr(user, "has_seen_welcome_popup", False)),
+        "last_daily_bonus_at": (
+            user.last_daily_bonus_at.isoformat()
+            if getattr(user, "last_daily_bonus_at", None)
+            else None
+        ),
+        "last_daily_bonus_date": (
+            user.last_daily_bonus_date.isoformat()
+            if getattr(user, "last_daily_bonus_date", None)
+            else (
+                user.last_daily_bonus_at.date().isoformat()
+                if getattr(user, "last_daily_bonus_at", None)
+                else None
+            )
+        ),
         "availability": user.availability,
         "is_online": user.is_online,
     }

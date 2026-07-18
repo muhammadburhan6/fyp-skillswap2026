@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Float,
     ForeignKey,
@@ -66,7 +67,12 @@ class User(Base):
     level = Column(Integer, default=1)
     streak = Column(Integer, default=0)
     role = Column(String(20), default="user")
+    # active | verified | suspended | banned
+    status = Column(String(20), default="active")
     onboarding_complete = Column(Boolean, default=False)
+    has_seen_welcome_popup = Column(Boolean, default=False)
+    last_daily_bonus_at = Column(DateTime, nullable=True)
+    last_daily_bonus_date = Column(Date, nullable=True)  # legacy / calendar day mirror
     availability = Column(String(120), default="flexible")
     is_online = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
@@ -81,6 +87,37 @@ class Skill(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(120), unique=True, nullable=False)
     category = Column(String(80), default="General")
+    # approved | pending | rejected | flagged
+    moderation_status = Column(String(20), default="approved")
+
+
+class Dispute(Base):
+    __tablename__ = "disputes"
+
+    id = Column(Integer, primary_key=True)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    accused_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    skill_name = Column(String(120), default="")
+    complaint = Column(Text, nullable=False, default="")
+    # open | warned | banned | resolved
+    status = Column(String(30), default="open")
+    admin_notes = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    resolved_at = Column(DateTime, nullable=True)
+
+
+class SkillModeration(Base):
+    __tablename__ = "skill_moderations"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    skill_name = Column(String(120), nullable=False)
+    category = Column(String(80), default="General")
+    # pending | approved | rejected | removed | shadowbanned
+    status = Column(String(30), default="pending")
+    reason = Column(Text, default="")
+    flagged = Column(Boolean, default=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Match(Base):
@@ -108,8 +145,10 @@ class Message(Base):
     id = Column(Integer, primary_key=True)
     conversation_id = Column(Integer, ForeignKey("conversations.id"), nullable=False)
     sender_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    content = Column(Text, nullable=False)
-    msg_type = Column(String(20), default="text")
+    content = Column(Text, nullable=False, default="")
+    msg_type = Column(String(20), default="text")  # text | image | file
+    attachment_url = Column(String(512), nullable=True)
+    attachment_name = Column(String(255), nullable=True)
     read_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
@@ -196,9 +235,25 @@ def migrate_schema():
         return
 
     columns = {col["name"] for col in inspector.get_columns("users")}
-    if "password_hash" not in columns:
-        with engine.begin() as conn:
+    with engine.begin() as conn:
+        if "password_hash" not in columns:
             conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR(255)"))
+        if "has_seen_welcome_popup" not in columns:
+            # Existing users should not see the one-time welcome popup.
+            conn.execute(text("ALTER TABLE users ADD COLUMN has_seen_welcome_popup BOOLEAN DEFAULT 1"))
+        if "last_daily_bonus_at" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN last_daily_bonus_at DATETIME"))
+        # Keep legacy date column if present; new code uses last_daily_bonus_at
+        if "last_daily_bonus_date" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN last_daily_bonus_date DATE"))
+        if "status" not in columns:
+            conn.execute(text("ALTER TABLE users ADD COLUMN status VARCHAR(20) DEFAULT 'active'"))
+
+    if "skills" in inspector.get_table_names():
+        skill_cols = {col["name"] for col in inspector.get_columns("skills")}
+        with engine.begin() as conn:
+            if "moderation_status" not in skill_cols:
+                conn.execute(text("ALTER TABLE skills ADD COLUMN moderation_status VARCHAR(20) DEFAULT 'approved'"))
 
     if "sessions" in inspector.get_table_names():
         session_cols = {col["name"] for col in inspector.get_columns("sessions")}
@@ -209,6 +264,14 @@ def migrate_schema():
                 conn.execute(text("ALTER TABLE sessions ADD COLUMN learning_path_mode VARCHAR(20)"))
             if "learning_path_generated_at" not in session_cols:
                 conn.execute(text("ALTER TABLE sessions ADD COLUMN learning_path_generated_at DATETIME"))
+
+    if "messages" in inspector.get_table_names():
+        msg_cols = {col["name"] for col in inspector.get_columns("messages")}
+        with engine.begin() as conn:
+            if "attachment_url" not in msg_cols:
+                conn.execute(text("ALTER TABLE messages ADD COLUMN attachment_url VARCHAR(512)"))
+            if "attachment_name" not in msg_cols:
+                conn.execute(text("ALTER TABLE messages ADD COLUMN attachment_name VARCHAR(255)"))
 
 
 def init_db():

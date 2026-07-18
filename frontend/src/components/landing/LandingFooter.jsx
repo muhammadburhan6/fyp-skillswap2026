@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../../lib/api'
+import SectionDivider from '../ui/SectionDivider'
 
 const footerLinks = {
   Product: ['Home', 'How it works', 'Features', 'Success stories', 'Community', 'Pricing', 'Team'],
@@ -12,7 +13,7 @@ const EMAIL_RE = /^[^@\s]+@[^@\s]+\.[^@\s]+$/
 
 export default function LandingFooter() {
   const [email, setEmail] = useState('')
-  const [status, setStatus] = useState(null) // { type: 'success' | 'error', text }
+  const [status, setStatus] = useState(null)
   const [loading, setLoading] = useState(false)
 
   const subscribe = async () => {
@@ -35,13 +36,14 @@ export default function LandingFooter() {
   }
 
   return (
-    <footer className="border-t border-white/10 bg-[#080b12] px-6 py-16">
-      <div className="mx-auto max-w-6xl">
+    <footer className="relative bg-backgroundDeep py-16 sm:py-20">
+      <SectionDivider />
+      <div className="section-wrap pt-12">
         <div className="grid gap-12 lg:grid-cols-12">
           <div className="lg:col-span-4">
-            <p className="font-display text-lg font-bold text-white">SkillSwap</p>
-            <p className="mt-3 text-sm text-slate-400">A platform for learning and teaching to help people grow.</p>
-            <div className="mt-6 flex gap-2">
+            <p className="text-2xl font-semibold tracking-tight">Skill/Swap</p>
+            <p className="mt-3 text-mutedForeground">A platform for learning and teaching to help people grow.</p>
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <input
                 className="input-field flex-1 text-sm"
                 placeholder="Email for newsletter"
@@ -55,13 +57,13 @@ export default function LandingFooter() {
                 type="button"
                 onClick={subscribe}
                 disabled={loading}
-                className="btn-primary px-4 py-2 text-sm disabled:opacity-60"
+                className="btn-primary shrink-0 px-4 py-3 text-sm disabled:opacity-60"
               >
                 {loading ? '…' : 'Subscribe'}
               </button>
             </div>
             {status && (
-              <p className={`mt-2 text-xs ${status.type === 'success' ? 'text-emerald-400' : 'text-red-400'}`}>
+              <p className={`mt-2 text-xs ${status.type === 'success' ? 'text-accent' : 'text-mutedForeground'}`}>
                 {status.text}
               </p>
             )}
@@ -69,11 +71,14 @@ export default function LandingFooter() {
           <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 lg:col-span-8">
             {Object.entries(footerLinks).map(([title, links]) => (
               <div key={title}>
-                <h3 className="mb-4 text-sm font-semibold text-white">{title}</h3>
+                <h3 className="mb-4 font-mono text-xs font-medium uppercase tracking-widest text-mutedForeground">{title}</h3>
                 <ul className="space-y-2">
                   {links.map((link) => (
                     <li key={link}>
-                      <Link to={link === 'Features' ? '/explore' : link === 'Home' ? '/' : '#'} className="text-sm text-slate-400 hover:text-sky-300">
+                      <Link
+                        to={link === 'Features' ? '/explore' : link === 'Home' ? '/' : '#'}
+                        className="text-sm text-mutedForeground transition hover:text-foreground"
+                      >
                         {link}
                       </Link>
                     </li>
@@ -83,7 +88,7 @@ export default function LandingFooter() {
             ))}
           </div>
         </div>
-        <p className="mt-12 text-sm text-slate-500">© 2026 SkillSwap Ltd.</p>
+        <p className="mt-12 font-mono text-xs uppercase tracking-widest text-mutedForeground">© 2026 Skill/Swap Ltd.</p>
       </div>
     </footer>
   )

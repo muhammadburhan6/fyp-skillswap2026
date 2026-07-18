@@ -33,6 +33,19 @@ from utils.passwords import hash_password  # noqa: E402
 limiter.enabled = False
 
 
+@pytest.fixture(scope="session", autouse=True)
+def _isolated_outbox(tmp_path_factory):
+    """Redirect dev-mode email outbox to a temp dir for the whole test session
+    so test emails never land in (or wipe) backend/data/outbox."""
+    from pathlib import Path
+
+    from services import email_service
+    original = email_service.OUTBOX_DIR
+    email_service.OUTBOX_DIR = Path(tmp_path_factory.mktemp("outbox"))
+    yield
+    email_service.OUTBOX_DIR = original
+
+
 @pytest.fixture()
 def client():
     flask_app.config.update(TESTING=True)

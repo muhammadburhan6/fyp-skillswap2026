@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import SkillSwapLogo from '../components/landing/SkillSwapLogo'
 import api from '../lib/api'
 import { useAuthStore } from '../store/useAuthStore'
 
@@ -26,21 +27,29 @@ export default function Onboarding() {
   }
 
   return (
-    <div className="auth-shell flex min-h-screen items-center justify-center px-6">
-      <form onSubmit={submit} className="card w-full max-w-lg space-y-4">
-        <h1 className="font-display text-2xl font-bold text-white">Set up your profile</h1>
-        <p className="text-sm text-slate-400">Tell us about your skills to get matched</p>
-        <input className="input-field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
-        <textarea className="input-field" placeholder="Short bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={2} />
-        <input className="input-field" placeholder="Skills I can teach" value={teach} onChange={(e) => setTeach(e.target.value)} />
-        <input className="input-field" placeholder="Skills I want to learn" value={learn} onChange={(e) => setLearn(e.target.value)} />
-        <select className="input-field" value={availability} onChange={(e) => setAvailability(e.target.value)}>
-          <option value="flexible">Flexible availability</option>
-          <option value="weekdays">Weekdays only</option>
-          <option value="weekends">Weekends only</option>
-        </select>
-        <button type="submit" className="btn-primary w-full">Complete setup →</button>
-      </form>
+    <div className="auth-shell relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="relative z-10 w-full max-w-lg">
+        <div className="mb-10 text-center">
+          <Link to="/" className="inline-flex items-center gap-3">
+            <SkillSwapLogo size="sm" />
+            <span className="text-2xl font-semibold tracking-tight">Skill/Swap</span>
+          </Link>
+        </div>
+        <form onSubmit={submit} className="card space-y-5 p-8">
+          <h1 className="text-3xl font-semibold tracking-tight">Set up your profile</h1>
+          <p className="text-mutedForeground">Tell us about your skills to get matched</p>
+          <input className="input-field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
+          <textarea className="input-field" placeholder="Short bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={2} />
+          <input className="input-field" placeholder="Skills I can teach (comma separated)" value={teach} onChange={(e) => setTeach(e.target.value)} />
+          <input className="input-field" placeholder="Skills I want to learn (comma separated)" value={learn} onChange={(e) => setLearn(e.target.value)} />
+          <select className="input-field" value={availability} onChange={(e) => setAvailability(e.target.value)}>
+            <option value="flexible">Flexible availability</option>
+            <option value="weekdays">Weekdays only</option>
+            <option value="weekends">Weekends only</option>
+          </select>
+          <button type="submit" className="btn-primary w-full">Complete setup →</button>
+        </form>
+      </div>
     </div>
   )
 }

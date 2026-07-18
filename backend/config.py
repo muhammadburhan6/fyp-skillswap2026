@@ -75,6 +75,7 @@ class Config:
     SQLALCHEMY_DATABASE_URI = _resolve_database_uri()
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
+    ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
     CORS_ORIGINS = _parse_cors_origins(os.getenv("CORS_ORIGINS", "*"))
 
     SMTP_HOST = os.getenv("SMTP_HOST", "")

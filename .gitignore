@@ -39,3 +39,16 @@ logs/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Dev email outbox (SMTP fallback)
+backend/data/outbox/
+
+# Local/tooling
+.claude/
+
+# Uploads & caches
+backend/uploads/
+backend/data/skill_demand_cache.json
+
+# Local DB dumps (keep SQL text if needed)
+database/*.db

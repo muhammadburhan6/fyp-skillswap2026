@@ -30,6 +30,8 @@ def _skill_signature(user) -> str:
 
 
 def _fallback_reason(overlap: dict) -> str:
+    if overlap.get("is_reciprocal"):
+        return "Perfect swap — you teach what they want and learn what they teach"
     exact = overlap["exact_count"]
     related = overlap["related_count"]
     if exact:
@@ -41,25 +43,39 @@ def _fallback_reason(overlap: dict) -> str:
 
 def get_candidate_matches(db, user_id: int, limit: int = AI_CANDIDATE_LIMIT):
     """Algorithmic candidates sorted by overlap strength, best first."""
-    user = db.get(User, user_id)
+    from sqlalchemy.orm import joinedload
+
+    user = (
+        db.query(User)
+        .options(joinedload(User.skills_teach), joinedload(User.skills_learn))
+        .filter(User.id == user_id)
+        .first()
+    )
     if not user:
         return user, []
 
     candidates = []
-    for cand in db.query(User).filter(User.id != user_id).all():
+    for cand in (
+        db.query(User)
+        .options(joinedload(User.skills_teach), joinedload(User.skills_learn))
+        .filter(User.id != user_id)
+        .all()
+    ):
         overlap = skill_overlap(user, cand)
         total = overlap["exact_count"] + overlap["related_count"]
         if total == 0:
             continue
+        # Reciprocal swaps rank above one-sided matches.
+        reciprocal_boost = 40 if overlap.get("is_reciprocal") else 0
         candidates.append({
             "user": cand,
             "overlap": overlap,
             "shared_skills": overlap["exact"] + overlap["related"],
-            # Weight exact matches higher for the base algorithmic ordering.
-            "base_score": overlap["exact_count"] * 20 + overlap["related_count"] * 8,
+            "base_score": overlap["exact_count"] * 20 + overlap["related_count"] * 8 + reciprocal_boost,
+            "is_reciprocal": overlap.get("is_reciprocal", False),
         })
 
-    candidates.sort(key=lambda c: c["base_score"], reverse=True)
+    candidates.sort(key=lambda c: (c["is_reciprocal"], c["base_score"]), reverse=True)
     return user, candidates[:limit]
 
 
@@ -84,88 +100,189 @@ def _fallback_recommendations(candidates):
 
 
 def rank_with_ai(user, candidates):
-    """Ask OpenAI to rank candidates and write a reason each.
+    """Rank candidates with AI (preferring Anthropic Claude if available, then OpenAI).
 
-    Returns (recommendations, mode). Falls back to the algorithmic ranking on any
-    failure. Never returns a user_id that wasn't in the candidate set.
+    Falls back to algorithmic ranking on failure.
     """
     if not candidates:
         return [], "fallback"
 
-    if not is_ai_available():
-        return _fallback_recommendations(candidates), "fallback"
+    from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
+    from services.prompts import SKILL_MATCHING_SYSTEM_PROMPT
 
-    client = get_openai_client()
-    if client is None:
-        return _fallback_recommendations(candidates), "fallback"
+    by_id = {str(c["user"].id): c for c in candidates}
 
-    by_id = {c["user"].id: c for c in candidates}
-    user_offered = [s.name for s in user.skills_teach]
-    user_wanted = [s.name for s in user.skills_learn]
+    if is_anthropic_available():
+        # Build payload for Anthropic
+        def get_proficiency_level(u, is_teaching=True):
+            if is_teaching:
+                return "advanced" if u.level >= 5 else "intermediate"
+            else:
+                return "beginner"
 
-    candidate_payload = [
-        {
-            "user_id": c["user"].id,
-            "name": c["user"].name,
-            "teaches": [s.name for s in c["user"].skills_teach],
-            "wants_to_learn": [s.name for s in c["user"].skills_learn],
-            "shared_skills": c["shared_skills"],
+        user_payload = {
+            "id": str(user.id),
+            "name": user.name,
+            "skills_offered": [{"name": s.name, "level": get_proficiency_level(user, True)} for s in user.skills_teach],
+            "skills_wanted": [{"name": s.name, "level": get_proficiency_level(user, False)} for s in user.skills_learn]
         }
-        for c in candidates
-    ]
 
-    system = (
-        "You are SkillSwap's matching assistant. Rank candidate users as skill-swap "
-        "partners for the current user. Return ONLY a JSON array, no prose. Each item: "
-        '{"user_id": <int from candidates>, "reason": "<one short sentence>", "score": <0-100>}. '
-        "Only use user_id values from the provided candidates."
-    )
-    user_prompt = json.dumps({
-        "current_user": {"offers": user_offered, "wants_to_learn": user_wanted},
-        "candidates": candidate_payload,
-    })
+        candidate_payload = [
+            {
+                "candidate_id": str(c["user"].id),
+                "name": c["user"].name,
+                "skills_offered": [{"name": s.name, "level": get_proficiency_level(c["user"], True)} for s in c["user"].skills_teach],
+                "skills_wanted": [{"name": s.name, "level": get_proficiency_level(c["user"], False)} for s in c["user"].skills_learn]
+            }
+            for c in candidates
+        ]
 
-    try:
-        resp = client.chat.completions.create(
-            model="gpt-4o-mini",
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": user_prompt},
-            ],
-            max_tokens=600,
-            temperature=0.4,
-        )
-        content = resp.choices[0].message.content.strip()
-        parsed = _extract_json_array(content)
-        if parsed is None:
-            raise ValueError("AI response was not a JSON array")
+        user_prompt = json.dumps({
+            "user": user_payload,
+            "candidates": candidate_payload
+        })
 
-        recs = []
-        seen = set()
-        for item in parsed:
-            if not isinstance(item, dict):
-                continue
-            uid = item.get("user_id")
-            # Guard: never trust an id the model invented.
-            if uid not in by_id or uid in seen:
-                continue
-            seen.add(uid)
-            reason = str(item.get("reason", "")).strip() or _fallback_reason(by_id[uid]["overlap"])
+        try:
+            content = call_anthropic(
+                system=SKILL_MATCHING_SYSTEM_PROMPT,
+                messages=[{"role": "user", "content": user_prompt}],
+                model="claude-sonnet-4-6",
+                max_tokens=1000,
+            )
+            parsed = parse_json_safely(content)
+            if not isinstance(parsed, dict) or "matches" not in parsed:
+                raise ValueError("Anthropic response is not a JSON object with matches key")
+
+            matches = parsed["matches"]
+            if not isinstance(matches, list):
+                raise ValueError("matches must be a list")
+
+            recs = []
+            seen = set()
+            for match in matches:
+                if not isinstance(match, dict):
+                    continue
+                cid = str(match.get("candidate_id"))
+                if cid not in by_id or cid in seen:
+                    continue
+                seen.add(cid)
+
+                cand = by_id[cid]
+                reason = str(match.get("reasoning", "")).strip() or _fallback_reason(cand["overlap"])
+                try:
+                    score = int(match.get("match_score"))
+                except (TypeError, ValueError):
+                    score = min(98, 40 + cand["base_score"])
+                score = max(0, min(100, score))
+
+                # Combine shared skills
+                shared = []
+                shared_dict = match.get("shared_skills", {})
+                if isinstance(shared_dict, dict):
+                    they_teach = shared_dict.get("they_teach_you")
+                    you_teach = shared_dict.get("you_teach_them")
+                    if isinstance(they_teach, list):
+                        shared.extend(they_teach)
+                    if isinstance(you_teach, list):
+                        shared.extend(you_teach)
+
+                if not shared:
+                    shared = cand["shared_skills"]
+
+                recs.append({
+                    "user": cand["user"],
+                    "shared_skills": shared,
+                    "reason": reason,
+                    "score": score
+                })
+
+            if not recs:
+                raise ValueError("Anthropic returned no valid candidate ids")
+
+            # Map the user objects to dicts for output
+            from utils.serializers import user_to_dict
+            final_recs = []
+            for r in recs:
+                final_recs.append({
+                    "user": user_to_dict(r["user"]),
+                    "shared_skills": r["shared_skills"],
+                    "reason": r["reason"],
+                    "score": r["score"],
+                })
+
+            final_recs.sort(key=lambda r: r["score"], reverse=True)
+            return final_recs, "ai"
+        except Exception:
+            logger.exception("Anthropic matching failed; falling back to OpenAI/algorithmic")
+
+    # OpenAI Fallback
+    if is_ai_available():
+        client = get_openai_client()
+        if client is not None:
+            by_id_int = {c["user"].id: c for c in candidates}
+            user_offered = [s.name for s in user.skills_teach]
+            user_wanted = [s.name for s in user.skills_learn]
+
+            openai_candidates = [
+                {
+                    "user_id": c["user"].id,
+                    "name": c["user"].name,
+                    "teaches": [s.name for s in c["user"].skills_teach],
+                    "wants_to_learn": [s.name for s in c["user"].skills_learn],
+                    "shared_skills": c["shared_skills"],
+                }
+                for c in candidates
+            ]
+
+            openai_system = (
+                "You are SkillSwap's matching assistant. Rank candidate users as skill-swap "
+                "partners for the current user. Prefer RECIPROCAL matches where each person "
+                "teaches what the other wants to learn. Return ONLY a JSON array, no prose. Each item: "
+                '{"user_id": <int from candidates>, "reason": "<one short sentence>", "score": <0-100>}. '
+                "Only use user_id values from the provided candidates. Give reciprocal swaps the highest scores."
+            )
+            openai_prompt = json.dumps({
+                "current_user": {"offers": user_offered, "wants_to_learn": user_wanted},
+                "candidates": openai_candidates,
+            })
+
             try:
-                score = int(item.get("score"))
-            except (TypeError, ValueError):
-                score = min(98, 40 + by_id[uid]["base_score"])
-            score = max(0, min(100, score))
-            recs.append(_build_recommendation(by_id[uid], reason, score))
+                resp = client.chat.completions.create(
+                    model="gpt-4o-mini",
+                    messages=[
+                        {"role": "system", "content": openai_system},
+                        {"role": "user", "content": openai_prompt},
+                    ],
+                    max_tokens=600,
+                    temperature=0.4,
+                )
+                content = resp.choices[0].message.content.strip()
+                parsed = _extract_json_array(content)
+                if parsed is not None:
+                    recs = []
+                    seen = set()
+                    for item in parsed:
+                        if not isinstance(item, dict):
+                            continue
+                        uid = item.get("user_id")
+                        if uid not in by_id_int or uid in seen:
+                            continue
+                        seen.add(uid)
+                        reason = str(item.get("reason", "")).strip() or _fallback_reason(by_id_int[uid]["overlap"])
+                        try:
+                            score = int(item.get("score"))
+                        except (TypeError, ValueError):
+                            score = min(98, 40 + by_id_int[uid]["base_score"])
+                        score = max(0, min(100, score))
+                        recs.append(_build_recommendation(by_id_int[uid], reason, score))
 
-        if not recs:
-            raise ValueError("AI returned no valid candidate ids")
+                    if recs:
+                        recs.sort(key=lambda r: r["score"], reverse=True)
+                        return recs, "ai"
+            except Exception:
+                logger.exception("OpenAI ranking fallback failed")
 
-        recs.sort(key=lambda r: r["score"], reverse=True)
-        return recs, "ai"
-    except Exception:
-        logger.exception("AI ranking failed; using algorithmic fallback")
-        return _fallback_recommendations(candidates), "fallback"
+    return _fallback_recommendations(candidates), "fallback"
 
 
 def _extract_json_array(content: str):
@@ -206,5 +323,12 @@ def get_recommendations(db, user_id: int):
     return data
 
 
-def invalidate_cache(user_id: int):
-    _cache.pop(user_id, None)
+def invalidate_cache(user_id: int = None):
+    """Drop cached recommendations. If user_id is None, clear the whole cache."""
+    if user_id is None:
+        _cache.clear()
+    else:
+        _cache.pop(user_id, None)
+        # Skill changes affect everyone else's candidate pool too.
+        _cache.clear()
+
