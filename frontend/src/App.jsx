@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import { useAuthStore } from './store/useAuthStore'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
+import AmbientBackground from './components/ui/AmbientBackground'
 import Landing from './pages/Landing'
 import ExploreFeatures from './pages/ExploreFeatures'
 import Auth from './pages/Auth'
@@ -28,9 +29,10 @@ export default function App() {
   return (
     <ErrorBoundary fallback={
       <div className="auth-shell flex min-h-screen items-center justify-center p-6 text-center">
-        <p className="text-lg font-semibold text-white">Something went wrong. <a href="/" className="text-sky-400 underline">Reload</a></p>
+        <p className="text-lg font-semibold text-foreground">Something went wrong. <a href="/" className="text-accent underline underline-offset-4">Reload</a></p>
       </div>
     }>
+      <AmbientBackground />
       <AuthLoader>
         <BrowserRouter>
           <Routes>

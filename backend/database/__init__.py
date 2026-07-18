@@ -1,3 +1,6 @@
-from database.mongo import check_connection, close_db, get_db, init_db
+"""Database package.
 
-__all__ = ["check_connection", "close_db", "get_db", "init_db"]
+The application uses SQLAlchemy (see :mod:`database.models`).
+"""
+
+__all__ = []

@@ -5,8 +5,8 @@ const Scene3D = lazy(() => import('./Scene3D'))
 
 function FallbackBg() {
   return (
-    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-      <div className="absolute left-1/2 top-1/3 h-[500px] w-[700px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-brand-600/15 blur-[100px]" />
+    <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-30" aria-hidden>
+      <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,transparent,transparent_23px,#000_24px)]" />
     </div>
   )
 }

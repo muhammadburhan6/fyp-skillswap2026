@@ -1,8 +1,6 @@
 """SkillSwap Flask + Socket.IO application."""
 
-import atexit
-
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
 
@@ -14,13 +12,14 @@ from database.mysql_setup import ensure_mysql_database
 from routes.admin import admin_bp
 from routes.ai import ai_bp
 from routes.auth import auth_bp
-from routes.chat import chat_bp
+from routes.chat import chat_bp, UPLOAD_DIR
 from routes.dashboard import dashboard_bp
 from routes.matches import matches_bp
 from routes.newsletter import newsletter_bp
 from routes.notifications import notifications_bp
 from routes.progress import progress_bp
 from routes.recommendations import recommendations_bp
+from routes.reviews import reviews_bp
 from routes.sessions import sessions_bp
 from routes.users import users_bp
 from routes.wallet import wallet_bp
@@ -49,10 +48,23 @@ def _print_mysql_help(error: Exception) -> None:
 def create_app(config_class: type = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
+    app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
 
-    CORS(app, resources={r"/api/*": {"origins": config_class.CORS_ORIGINS}}, supports_credentials=True)
+    CORS(
+        app,
+        resources={
+            r"/api/*": {"origins": config_class.CORS_ORIGINS},
+            r"/uploads/*": {"origins": config_class.CORS_ORIGINS},
+        },
+        supports_credentials=True,
+    )
 
     limiter.init_app(app)
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+    @app.route("/uploads/<path:filename>")
+    def serve_upload(filename):
+        return send_from_directory(UPLOAD_DIR, filename)
 
     @app.errorhandler(429)
     def ratelimit_handler(error):
@@ -91,6 +103,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(notifications_bp, url_prefix="/api/notifications")
     app.register_blueprint(newsletter_bp, url_prefix="/api/newsletter")
     app.register_blueprint(recommendations_bp, url_prefix="/api/recommendations")
+    app.register_blueprint(reviews_bp, url_prefix="/api/reviews")
 
     socketio.init_app(app)
     register_socket_events()
@@ -149,6 +162,7 @@ def register_socket_events():
     def on_message_send(data):
         from database.models import Conversation, Message
         from datetime import datetime, timezone
+        from services.notification_service import notify
 
         sender_id = _authed_user_id()
         if sender_id is None:
@@ -157,28 +171,47 @@ def register_socket_events():
         db = SessionLocal()
         try:
             conv_id = data.get("conversation_id")
-            content = data.get("content", "").strip()
-            if not conv_id or not content:
+            content = (data.get("content") or "").strip()
+            attachment_url = data.get("attachment_url")
+            attachment_name = data.get("attachment_name")
+            msg_type = data.get("type") or ("image" if attachment_url else "text")
+            if attachment_url and msg_type == "text":
+                # Infer from filename if type omitted
+                name = (attachment_name or attachment_url or "").lower()
+                if name.endswith((".png", ".jpg", ".jpeg", ".gif", ".webp")):
+                    msg_type = "image"
+                elif name.endswith((".mp4", ".webm", ".mov", ".m4v")):
+                    msg_type = "video"
+                else:
+                    msg_type = "file"
+            if not conv_id or (not content and not attachment_url):
                 return
 
             msg = Message(
                 conversation_id=conv_id,
                 sender_id=sender_id,
-                content=content,
-                msg_type=data.get("type", "text"),
+                content=content or (attachment_name or ""),
+                msg_type=msg_type,
+                attachment_url=attachment_url,
+                attachment_name=attachment_name,
             )
             db.add(msg)
             conv = db.query(Conversation).get(conv_id)
             if conv:
                 conv.last_message_at = datetime.now(timezone.utc)
+                for participant in conv.participants:
+                    if participant.id != sender_id:
+                        notify(db, participant.id, "message", {"conversation_id": conv_id, "from_user_id": sender_id})
             db.commit()
 
             payload = {
                 "id": msg.id,
                 "conversation_id": conv_id,
                 "sender_id": sender_id,
-                "content": content,
+                "content": msg.content,
                 "type": msg.msg_type,
+                "attachment_url": msg.attachment_url,
+                "attachment_name": msg.attachment_name,
                 "created_at": msg.created_at.isoformat(),
             }
             emit("message:receive", payload, room=f"conv_{conv_id}", broadcast=True)

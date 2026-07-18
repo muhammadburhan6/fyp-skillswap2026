@@ -45,67 +45,37 @@ export default function ResetPassword() {
   }
 
   return (
-    <div className="auth-shell flex min-h-screen items-center justify-center px-4 py-12 text-white">
-      <div className="w-full max-w-sm">
-        <div className="mb-8 text-center">
-          <Link to="/" className="inline-flex items-center gap-2">
+    <div className="auth-shell relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="relative z-10 w-full max-w-md">
+        <div className="mb-10 text-center">
+          <Link to="/" className="inline-flex items-center gap-3">
             <SkillSwapLogo size="sm" />
-            <span className="font-display text-lg font-bold text-white">SkillSwap</span>
+            <span className="text-2xl font-semibold tracking-tight">Skill/Swap</span>
           </Link>
         </div>
 
         <div className="card p-8">
-          <h1 className="font-display text-xl font-bold text-white">Reset password</h1>
-          <p className="mt-1 text-sm text-slate-400">Choose a new password for your account.</p>
+          <h1 className="text-3xl font-semibold tracking-tight">Reset password</h1>
+          <p className="mt-2 text-mutedForeground">Choose a new password for your account.</p>
 
-          <form onSubmit={handleSubmit} className="mt-6 space-y-4">
+          <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div>
-              <label htmlFor="password" className="mb-1.5 block text-sm font-medium text-slate-300">
-                New password
-              </label>
-              <input
-                id="password"
-                type="password"
-                className="input-field"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
+              <label htmlFor="password" className="mb-2 block text-xs font-medium text-mutedForeground">New password</label>
+              <input id="password" type="password" className="input-field" value={password} onChange={(e) => setPassword(e.target.value)} required minLength={6} autoComplete="new-password" />
             </div>
             <div>
-              <label htmlFor="confirm" className="mb-1.5 block text-sm font-medium text-slate-300">
-                Confirm password
-              </label>
-              <input
-                id="confirm"
-                type="password"
-                className="input-field"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                required
-                minLength={6}
-                autoComplete="new-password"
-              />
+              <label htmlFor="confirm" className="mb-2 block text-xs font-medium text-mutedForeground">Confirm password</label>
+              <input id="confirm" type="password" className="input-field" value={confirm} onChange={(e) => setConfirm(e.target.value)} required minLength={6} autoComplete="new-password" />
             </div>
-            {error && (
-              <p className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-sm text-red-300">{error}</p>
-            )}
-            {message && (
-              <p className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-3 py-2 text-sm text-emerald-300">
-                {message}
-              </p>
-            )}
+            {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
+            {message && <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm">{message}</p>}
             <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
-              {loading ? 'Updating…' : 'Update password'}
+              {loading ? 'Updating…' : 'Update password →'}
             </button>
           </form>
 
-          <p className="mt-6 text-center text-sm text-slate-400">
-            <Link to="/auth" className="font-semibold text-sky-400 hover:text-sky-300">
-              Back to login
-            </Link>
+          <p className="mt-8 text-center text-sm text-mutedForeground">
+            <Link to="/auth" className="font-medium text-accent hover:text-accentBright">Back to login</Link>
           </p>
         </div>
       </div>
