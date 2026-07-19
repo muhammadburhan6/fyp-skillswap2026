@@ -5,6 +5,7 @@ import DashboardSpPopups from '../components/DashboardSpPopups'
 import RecommendedMatches from '../components/RecommendedMatches'
 import SkillDemandPanel from '../components/SkillDemandPanel'
 import api from '../lib/api'
+import { formatLocalDateTime, parseApiDate } from '../lib/dateTime'
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
@@ -52,7 +53,7 @@ export default function Dashboard() {
   const sessionDates = useMemo(() => {
     const set = new Set()
     for (const session of data?.today_sessions || []) {
-      const d = new Date(session.scheduled_at)
+      const d = parseApiDate(session.scheduled_at)
       set.add(`${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`)
     }
     return set
@@ -60,7 +61,7 @@ export default function Dashboard() {
 
   const selectedSessions = useMemo(() => {
     return (data?.today_sessions || []).filter((session) =>
-      sameDay(new Date(session.scheduled_at), selectedDate),
+      sameDay(parseApiDate(session.scheduled_at), selectedDate),
     )
   }, [data, selectedDate])
 
@@ -95,7 +96,7 @@ export default function Dashboard() {
                     key={session.id}
                     className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                   >
-                    Session scheduled · {new Date(session.scheduled_at).toLocaleString()}
+                    Session scheduled · {formatLocalDateTime(session.scheduled_at)}
                   </div>
                 ))}
               </div>
@@ -218,7 +219,7 @@ export default function Dashboard() {
                     key={session.id}
                     className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-foreground"
                   >
-                    {new Date(session.scheduled_at).toLocaleString()}
+                    {formatLocalDateTime(session.scheduled_at)}
                   </div>
                 ))}
               </div>

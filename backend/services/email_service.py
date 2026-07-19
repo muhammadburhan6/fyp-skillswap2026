@@ -42,8 +42,20 @@ def _write_outbox(to_address: str, subject: str, body: str) -> None:
 def send_email(to_address: str, subject: str, body: str, html: str | None = None) -> bool:
     """Send a plain-text (optionally HTML) email. Returns True on SMTP success."""
     if not Config.email_enabled():
+        print(
+            f"[email] SMTP not configured (host={Config.SMTP_HOST!r}, "
+            f"user set={bool(Config.SMTP_USER)}, pass set={bool(Config.SMTP_PASSWORD)}) "
+            f"-> writing to outbox for {to_address!r}",
+            flush=True,
+        )
         _write_outbox(to_address, subject, body)
         return False
+
+    print(
+        f"[email] Sending via {Config.SMTP_HOST}:{Config.SMTP_PORT} "
+        f"to {to_address!r} — {subject!r}",
+        flush=True,
+    )
 
     message = EmailMessage()
     message["From"] = Config.SMTP_FROM
@@ -58,8 +70,10 @@ def send_email(to_address: str, subject: str, body: str, html: str | None = None
             server.starttls()
             server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
             server.send_message(message)
+        print(f"[email] OK — delivered to SMTP for {to_address!r}", flush=True)
         return True
-    except Exception:
+    except Exception as exc:
+        print(f"[email] FAILED for {to_address!r}: {type(exc).__name__}: {exc}", flush=True)
         logger.exception("Failed to send email to %s", to_address)
         return False
 
@@ -94,16 +108,95 @@ def send_welcome(to_address: str, name: str) -> bool:
     return send_email(to_address, subject, body)
 
 
-# In-app notification types that also warrant an email. Chat messages are
-# deliberately excluded — emailing every message would be spam.
+# In-app notification types that also get an email.
+# Chat "message" is deliberately excluded — emailing every DM would be spam.
 EMAILABLE_TYPES = {
     "match_request": "New skill exchange request on SkillSwap",
     "match_accepted": "Your skill exchange request was accepted",
     "match_declined": "Update on your skill exchange request",
     "session_booked": "A learning session was booked with you",
     "session_completed": "Your SkillSwap session is complete",
+    "session_reminder": "Reminder: you have an upcoming SkillSwap session",
     "points_granted": "SkillSwap update: bonus Skill Points added",
+    "account_warning": "Important notice about your SkillSwap account",
+    "material_published": "New teaching material available on SkillSwap",
+    "paid_session_booked": "New paid session booked on SkillSwap",
+    "paid_session_confirmed": "Your paid SkillSwap session is confirmed",
+    "new_review": "You received a new review on SkillSwap",
 }
+
+
+def _notification_body(notif_type: str, to_name: str, payload: dict) -> str:
+    from_name = payload.get("from_name") or payload.get("owner_name") or "Another user"
+    skill = payload.get("skill") or "a skill"
+    learner = payload.get("learner_name") or "A learner"
+    teacher = payload.get("teacher_name") or "your teacher"
+    amount = payload.get("amount_usd")
+    rating = payload.get("rating")
+    points = payload.get("amount", "")
+    item_title = payload.get("item_title") or "a new material"
+    collection_title = payload.get("collection_title") or "their library"
+
+    lines = {
+        "match_request": (
+            f"{from_name} sent you a skill exchange request. "
+            "Open SkillSwap to accept or decline it."
+        ),
+        "match_accepted": (
+            f"{from_name} accepted your skill exchange request — "
+            "a chat has been opened for you two."
+        ),
+        "match_declined": (
+            f"{from_name} declined your skill exchange request this time. "
+            "Keep exploring other matches!"
+        ),
+        "session_booked": (
+            "A new learning session has been booked with you. "
+            "Check your calendar for the details."
+        ),
+        "session_completed": (
+            "Your session was marked complete. "
+            "XP and Skill Points have been applied to your account."
+        ),
+        "session_reminder": (
+            "Friendly reminder: you have an upcoming learning session. "
+            "Open your calendar for the time and meeting link."
+        ),
+        "points_granted": (
+            f"An administrator added {points} bonus Skill Points to your wallet."
+        ),
+        "account_warning": (
+            "The moderation team has an important update about your account. "
+            "Please sign in to review the notice."
+        ),
+        "material_published": (
+            f'{from_name} published "{item_title}" in "{collection_title}"'
+            f"{f' ({skill})' if skill else ''}. "
+            "Open Materials to view it."
+        ),
+        "paid_session_booked": (
+            f"{learner} booked a paid session with you for {skill}"
+            + (f" (${amount:.2f} earnings)" if isinstance(amount, (int, float)) else "")
+            + ". Check your calendar to add a meeting link."
+        ),
+        "paid_session_confirmed": (
+            f"Your payment went through. Your paid session with {teacher} "
+            f"for {skill} is confirmed. See your calendar for details."
+        ),
+        "new_review": (
+            f"{from_name} left you a {rating}-star review"
+            f"{f' for {skill}' if skill else ''}. "
+            "Open your profile to read the feedback."
+        ),
+    }
+
+    detail = lines.get(notif_type, "You have a new notification on SkillSwap.")
+    return (
+        f"Hi {to_name},\n\n"
+        f"{detail}\n\n"
+        f"See details: {Config.FRONTEND_URL}\n\n"
+        "— SkillSwap"
+    )
 
 
 def send_notification_email(to_address: str, to_name: str, notif_type: str, payload: dict) -> bool:
@@ -112,19 +205,5 @@ def send_notification_email(to_address: str, to_name: str, notif_type: str, payl
     if not subject:
         return False
 
-    from_name = payload.get("from_name", "Another user")
-    lines = {
-        "match_request": f"{from_name} sent you a skill exchange request. Open SkillSwap to accept or decline it.",
-        "match_accepted": f"{from_name} accepted your skill exchange request — a chat has been opened for you two.",
-        "match_declined": f"{from_name} declined your skill exchange request this time. Keep exploring other matches!",
-        "session_booked": "A new learning session has been booked with you. Check your calendar for the details.",
-        "session_completed": "Your session was marked complete. XP and Skill Points have been applied to your account.",
-        "points_granted": f"An administrator added {payload.get('amount', '')} bonus Skill Points to your wallet.",
-    }
-    body = (
-        f"Hi {to_name},\n\n"
-        f"{lines.get(notif_type, 'You have a new notification.')}\n\n"
-        f"See details: {Config.FRONTEND_URL}\n\n"
-        "— SkillSwap"
-    )
+    body = _notification_body(notif_type, to_name, payload or {})
     return send_email(to_address, subject, body)
