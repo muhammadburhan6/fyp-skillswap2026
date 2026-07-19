@@ -9,6 +9,7 @@ Two modes, same entry point:
 
 from __future__ import annotations
 
+import difflib
 import logging
 import re
 from datetime import datetime, timezone
@@ -220,6 +221,23 @@ def _reviews_reply():
     )
 
 
+def _unknown_reply(db):
+    """Never a dead end: point at real, popular skills the user can type."""
+    skills = db.query(Skill).all()
+    top = sorted(skills, key=lambda s: len(s.teachers), reverse=True)[:5]
+    names = ", ".join(s.name for s in top if s.teachers)
+    if names:
+        return (
+            "Type any skill name and I'll show you who teaches it.\n"
+            f"Popular right now: {names}.\n"
+            "I can also answer about your points, matches, sessions, badges, and requests."
+        )
+    return (
+        "Type any skill name and I'll show you who teaches it — or ask about your "
+        "points, matches, sessions, badges, and requests."
+    )
+
+
 def _help_reply():
     return (
         "I can answer live from your account:\n"
@@ -246,12 +264,18 @@ _SKILL_STOPWORDS = {
 }
 
 
-def _find_skill_in_message(db, message: str):
+def _find_skill_in_message(db, message: str, lenient: bool = False):
     """Detect a skill mentioned in the message ('content writing', or just
-    'content'). Exact phrase beats word overlap; ties go to more teachers."""
+    'content'). Exact phrase beats word overlap; ties go to more teachers.
+
+    Lenient mode also accepts word prefixes and small typos ('cook' → Cooking,
+    'pythn' → Python). It is meant to run only after the intent checks, so
+    words like 'book' can't hijack a booking question via 'Bookkeeping'."""
     msg_words = {w for w in re.split(r"[^a-z0-9+#]+", message.lower()) if w}
     if not msg_words:
         return None
+
+    candidate_words = {w for w in msg_words if len(w) >= 3 and w not in _SKILL_STOPWORDS}
 
     best, best_score = None, 0
     for skill in db.query(Skill).all():
@@ -261,17 +285,24 @@ def _find_skill_in_message(db, message: str):
             score = 100 + len(name_lower)
         else:
             name_words = {w for w in re.split(r"[^a-z0-9+#]+", name_lower) if w}
-            overlap = {
-                w for w in (name_words & msg_words)
-                if len(w) >= 4 and w not in _SKILL_STOPWORDS
-            }
-            if overlap:
-                score = 10 * len(overlap)
+            for nw in name_words:
+                if len(nw) < 3 or nw in _SKILL_STOPWORDS:
+                    continue
+                word_best = 0
+                for mw in candidate_words:
+                    if mw == nw:
+                        word_best = max(word_best, 10)
+                    elif lenient:
+                        if nw.startswith(mw) or mw.startswith(nw):
+                            word_best = max(word_best, 6)
+                        elif len(mw) >= 4 and difflib.SequenceMatcher(None, mw, nw).ratio() >= 0.8:
+                            word_best = max(word_best, 8)
+                score += word_best
         if score > best_score or (
             score == best_score and score > 0 and len(skill.teachers) > len(best.teachers)
         ):
             best, best_score = skill, score
-    return best if best_score >= 10 else None
+    return best if best_score >= (6 if lenient else 10) else None
 
 
 def _skill_teachers_answer(db, user, skill) -> dict:
@@ -355,11 +386,14 @@ def smart_answer(db, user, raw_message: str) -> dict:
         return plain(_thanks_reply())
     if _contains(message, "help", "how", "what can", "kaise", "kya kar"):
         return plain(_help_reply())
-    return plain(
-        "I'm not sure about that one — but I can tell you about your points, matches, "
-        "trending skills, sessions, badges, and requests. You can also type any skill "
-        "name (like “Content Writing”) and I'll find who teaches it. 🙂"
-    )
+
+    # Last resort before giving up: lenient skill match so partial words and
+    # small typos ('cook', 'photo', 'pythn') still land on a skill answer.
+    skill = _find_skill_in_message(db, message, lenient=True)
+    if skill:
+        return _skill_teachers_answer(db, user, skill)
+
+    return plain(_unknown_reply(db))
 
 
 def smart_reply(db, user, raw_message: str) -> str:
@@ -410,6 +444,16 @@ def chat_reply(db, user, raw_message: str) -> dict:
         if user.id in _chat_history:
             _chat_history[user.id] = []
         return {"reply": "Chat history has been reset. How can I help you today?", "mode": "ai"}
+
+    # Skill mentions always get the live teachers answer (with its deep link),
+    # in AI and smart mode alike — the AI can't produce in-app link buttons.
+    skill = _find_skill_in_message(db, message_clean)
+    if skill:
+        answer = _skill_teachers_answer(db, user, skill)
+        out = {"reply": answer["reply"], "mode": "smart"}
+        if answer.get("link"):
+            out["link"] = answer["link"]
+        return out
 
     from services.prompts import CHATBOT_SYSTEM_PROMPT
 
