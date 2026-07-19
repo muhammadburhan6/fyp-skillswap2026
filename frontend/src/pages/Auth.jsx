@@ -74,8 +74,19 @@ export default function Auth() {
       }
     } catch (err) {
       const status = err.response?.status
-      if (!err.response) setError('Cannot reach the server. Run: npm run dev')
-      else if (status === 502 || status === 503) setError('Server is not running. Run: npm run dev')
+      if (!err.response) {
+        setError(
+          import.meta.env.DEV
+            ? 'Cannot reach the server. Run the backend (npm run dev from project root).'
+            : 'Cannot reach the server. Wait 30s (backend waking up) and try again.',
+        )
+      } else if (status === 502 || status === 503) {
+        setError(
+          import.meta.env.DEV
+            ? 'Server is not running. Run: npm run dev'
+            : 'Server is waking up. Wait 30 seconds and try again.',
+        )
+      }
       else setError(err.response?.data?.error || err.message || 'Something went wrong')
     } finally {
       setLoading(false)

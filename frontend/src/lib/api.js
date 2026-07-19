@@ -1,8 +1,10 @@
 import axios from 'axios'
 import { getToken, handleUnauthorized } from './authToken'
 
-// Local: Vite proxies /api → Flask. Production: set VITE_API_URL to https://your-api.up.railway.app/api
-const apiBase = import.meta.env.VITE_API_URL || '/api'
+// Always same-origin /api:
+// - Local: Vite proxies → Flask (vite.config.js)
+// - Production: Vercel rewrites → Railway (vercel.json)
+const apiBase = '/api'
 
 const api = axios.create({ baseURL: apiBase })
 

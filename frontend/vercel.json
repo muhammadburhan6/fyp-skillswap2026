@@ -5,6 +5,14 @@
   "outputDirectory": "dist",
   "installCommand": "npm install",
   "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://skillswap-backend-production-95cd.up.railway.app/api/:path*"
+    },
+    {
+      "source": "/uploads/:path*",
+      "destination": "https://skillswap-backend-production-95cd.up.railway.app/uploads/:path*"
+    },
     { "source": "/(.*)", "destination": "/index.html" }
   ]
 }
