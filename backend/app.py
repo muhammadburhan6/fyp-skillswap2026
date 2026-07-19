@@ -82,6 +82,14 @@ def create_app(config_class: type = Config) -> Flask:
         _print_mysql_help(exc)
         raise SystemExit(1) from exc
 
+    @app.route("/", methods=["GET"])
+    def root():
+        return jsonify({
+            "service": "SkillSwap API",
+            "status": "ok",
+            "health": "/api/health",
+        })
+
     @app.route("/api/health", methods=["GET"])
     def health_check():
         return jsonify({
