@@ -14,6 +14,24 @@ auth_bp = Blueprint("auth", __name__)
 RESET_TOKEN_MINUTES = 30
 
 
+def _verify_firebase_id_token(id_token: str) -> dict | None:
+    """Verify a Firebase Auth ID token. Returns claims dict or None."""
+    project_id = Config.FIREBASE_PROJECT_ID
+    if not project_id or not id_token:
+        return None
+    try:
+        from google.auth.transport import requests as google_requests
+        from google.oauth2 import id_token as google_id_token
+
+        return google_id_token.verify_firebase_token(
+            id_token,
+            google_requests.Request(),
+            audience=project_id,
+        )
+    except Exception:
+        return None
+
+
 @auth_bp.route("/login", methods=["POST"])
 @limiter.limit("5 per minute")
 def login():
@@ -27,12 +45,82 @@ def login():
     db = SessionLocal()
     try:
         user = db.query(User).filter_by(email=email).first()
+        # Google-only accounts have no password_hash — reject password login.
         if not user or not verify_password(user.password_hash, password):
             return jsonify({"error": "Invalid email or password"}), 401
         if user.status in ("suspended", "banned"):
             return jsonify({"error": "Your account has been suspended. Contact support."}), 403
         token = generate_token(user.id, user.role)
         return jsonify({"user": user_to_dict(user), "token": token})
+    finally:
+        db.close()
+
+
+@auth_bp.route("/google", methods=["POST"])
+@limiter.limit("10 per minute")
+def google_login():
+    """Exchange a Firebase ID token for a SkillSwap JWT."""
+    if not Config.FIREBASE_PROJECT_ID:
+        return jsonify({"error": "Google sign-in is not configured on the server."}), 503
+
+    data = request.get_json() or {}
+    id_token = (data.get("id_token") or data.get("idToken") or "").strip()
+    if not id_token:
+        return jsonify({"error": "Firebase ID token is required"}), 400
+
+    claims = _verify_firebase_id_token(id_token)
+    if not claims:
+        return jsonify({"error": "Invalid or expired Google sign-in. Try again."}), 401
+
+    email = (claims.get("email") or "").strip().lower()
+    if not email:
+        return jsonify({"error": "Google account email is required"}), 400
+    if claims.get("email_verified") is False:
+        return jsonify({"error": "Please verify your Google email first."}), 403
+
+    name = (claims.get("name") or claims.get("given_name") or email.split("@")[0]).strip()
+    picture = (claims.get("picture") or "").strip()
+
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter_by(email=email).first()
+        created = False
+        if not user:
+            user = User(
+                name=name[:120] or "Google User",
+                email=email,
+                password_hash=None,
+                avatar_url=picture[:512] if picture else "",
+                status="verified",
+                has_seen_welcome_popup=False,
+            )
+            db.add(user)
+            db.flush()
+            record_signup_bonus(db, user)
+            created = True
+        else:
+            if user.status in ("suspended", "banned"):
+                return jsonify({"error": "Your account has been suspended. Contact support."}), 403
+            # Refresh profile fields from Google when empty / outdated avatar.
+            if name and (not user.name or user.name == "New User"):
+                user.name = name[:120]
+            if picture and not user.avatar_url:
+                user.avatar_url = picture[:512]
+
+        db.commit()
+        db.refresh(user)
+
+        if created:
+            try:
+                send_welcome(user.email, user.name)
+            except Exception:
+                pass
+
+        token = generate_token(user.id, user.role)
+        return jsonify({"user": user_to_dict(user), "token": token}), (201 if created else 200)
+    except Exception:
+        db.rollback()
+        return jsonify({"error": "Could not complete Google sign-in. Please try again."}), 500
     finally:
         db.close()
 

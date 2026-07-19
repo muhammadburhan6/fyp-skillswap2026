@@ -26,6 +26,12 @@ export const useAuthStore = create((set) => ({
     set({ user: data.user })
     return data.user
   },
+  loginWithGoogle: async (idToken) => {
+    const data = await api.googleLogin(idToken)
+    setToken(data.token)
+    set({ user: data.user })
+    return data.user
+  },
   register: async (form) => {
     const data = await api.register(form)
     setToken(data.token)

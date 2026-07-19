@@ -132,12 +132,32 @@ npm run dev
 | `OPENAI_API_KEY` | For AI matching and SkillBot (optional; fallbacks exist) |
 | `DATABASE_URL` | Override DB connection (optional) |
 | `MYSQL_HOST`, `MYSQL_PORT`, etc. | MySQL connection (optional) |
+| `FIREBASE_PROJECT_ID` | Firebase project ID — verifies Google Sign-In tokens |
 
 **Frontend** (`frontend/.env`):
 
 | Variable | Description |
 |----------|-------------|
-| `VITE_API_URL` | API base URL (default: `http://localhost:5000/api`) |
+| `VITE_API_URL` | API base URL (optional; local uses Vite `/api` proxy) |
+| `VITE_SOCKET_URL` | Socket.IO URL (default: `http://localhost:5000`) |
+| `VITE_FIREBASE_API_KEY` | Firebase web config |
+| `VITE_FIREBASE_AUTH_DOMAIN` | Firebase web config |
+| `VITE_FIREBASE_PROJECT_ID` | Must match backend `FIREBASE_PROJECT_ID` |
+| `VITE_FIREBASE_APP_ID` | Firebase web config |
+| `VITE_FIREBASE_STORAGE_BUCKET` | Optional |
+| `VITE_FIREBASE_MESSAGING_SENDER_ID` | Optional |
+
+### Google Sign-In (Firebase)
+
+Email/password login still works. Google uses Firebase Auth + a backend JWT exchange.
+
+1. **Firebase Console** → Authentication → Sign-in method → enable **Google**
+2. **Authentication → Settings → Authorized domains** → add `localhost` and `ss-web-1031.vercel.app`
+3. **Project settings → Your apps → Web** → copy config into frontend env vars
+4. **Railway** → Variables → set `FIREBASE_PROJECT_ID` = your Firebase project ID → redeploy
+5. **Vercel** → Settings → Environment Variables → add all `VITE_FIREBASE_*` → Redeploy
+
+Flow: Auth page → Firebase Google popup → `POST /api/auth/google` with ID token → SkillSwap JWT.
 
 ---
 
@@ -157,8 +177,8 @@ CI runs both on push/PR via GitHub Actions.
 
 ## Deployment
 
-- **Backend:** `render.yaml` — Gunicorn + eventlet on Render
-- **Frontend:** `vercel.json` — SPA rewrites on Vercel
+- **Backend:** Railway (`backend/`) — Gunicorn + eventlet; set `FIREBASE_PROJECT_ID` for Google login
+- **Frontend:** Vercel (`frontend/`) — SPA + `/api` rewrite to Railway; set `VITE_FIREBASE_*` for Google login
 
 ---
 

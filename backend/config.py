@@ -85,6 +85,9 @@ class Config:
     SMTP_FROM = os.getenv("SMTP_FROM", "SkillSwap <no-reply@skillswap.io>")
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
+    # Firebase project ID used to verify Google Sign-In ID tokens from the client.
+    FIREBASE_PROJECT_ID = os.getenv("FIREBASE_PROJECT_ID", "").strip()
+
     @classmethod
     def email_enabled(cls) -> bool:
         return bool(cls.SMTP_HOST and cls.SMTP_USER and cls.SMTP_PASSWORD)
