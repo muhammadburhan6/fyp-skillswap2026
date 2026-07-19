@@ -49,6 +49,10 @@ def create_app(config_class: type = Config) -> Flask:
     app = Flask(__name__)
     app.config.from_object(config_class)
     app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+    # Serve /api/x and /api/x/ alike. Without this Flask 308-redirects to the
+    # canonical slash URL, which lands on the Railway host directly and drops
+    # the Authorization header when the request came through the Vercel proxy.
+    app.url_map.strict_slashes = False
 
     CORS(
         app,
