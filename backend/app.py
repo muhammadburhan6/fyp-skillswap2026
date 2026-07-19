@@ -96,10 +96,26 @@ def create_app(config_class: type = Config) -> Flask:
 
     @app.route("/api/health", methods=["GET"])
     def health_check():
+        user_count = 0
+        db_path = ""
+        try:
+            db = SessionLocal()
+            try:
+                user_count = db.query(User).count()
+            finally:
+                db.close()
+            uri = config_class.SQLALCHEMY_DATABASE_URI
+            if uri.startswith("sqlite:///"):
+                db_path = uri.replace("sqlite:///", "", 1)
+        except Exception:
+            pass
         return jsonify({
             "status": "healthy",
             "service": "SkillSwap API",
             "database": config_class.database_label(),
+            "user_count": user_count,
+            "db_path": db_path or None,
+            "persistent": bool(db_path.startswith("/data")),
         })
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")
