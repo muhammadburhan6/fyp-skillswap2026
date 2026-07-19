@@ -19,6 +19,25 @@ from sqlalchemy.orm import DeclarativeBase, relationship, sessionmaker
 
 from config import Config
 
+
+def _ensure_sqlite_dir(uri: str) -> None:
+    """Create the parent folder for a file-based SQLite DB so a mounted
+    persistent volume path (e.g. sqlite:////data/skillswap.db) works."""
+    prefix = "sqlite:///"
+    if not uri.startswith(prefix):
+        return
+    path = uri[len(prefix):]
+    if not path or path == ":memory:":
+        return
+    import os
+
+    directory = os.path.dirname(path)
+    if directory:
+        os.makedirs(directory, exist_ok=True)
+
+
+_ensure_sqlite_dir(Config.SQLALCHEMY_DATABASE_URI)
+
 engine = create_engine(
     Config.SQLALCHEMY_DATABASE_URI,
     echo=False,
