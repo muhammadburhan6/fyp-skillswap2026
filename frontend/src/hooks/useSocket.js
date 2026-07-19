@@ -2,7 +2,12 @@ import { useCallback, useEffect, useRef } from 'react'
 import { io } from 'socket.io-client'
 import { getToken } from '../lib/authToken'
 
-const SOCKET_URL = import.meta.env.VITE_SOCKET_URL || 'http://localhost:5000'
+// Socket.IO needs a direct connection (Vercel rewrites can't proxy WebSockets).
+// Local dev → Flask on :5000. Production → Railway backend.
+const PROD_BACKEND = 'https://skillswap-backend-production-95cd.up.railway.app'
+const SOCKET_URL =
+  import.meta.env.VITE_SOCKET_URL ||
+  (import.meta.env.PROD ? PROD_BACKEND : 'http://localhost:5000')
 
 export function useSocket(userId, onMessage) {
   const socketRef = useRef(null)

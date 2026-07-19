@@ -13,7 +13,16 @@ from database.models import (
 )
 from database.models import SessionLocal, init_db
 from datetime import datetime, timezone, timedelta
+import os
 from utils.passwords import hash_password
+
+
+def _bulk_target() -> int:
+    """How many bulk demo users to keep seeded. Set SEED_BULK_USERS=0 to disable."""
+    try:
+        return int(os.getenv("SEED_BULK_USERS", "600"))
+    except ValueError:
+        return 600
 
 
 SKILL_CATALOG = [
@@ -237,9 +246,12 @@ def seed_database():
     init_db()
     db = SessionLocal()
     try:
+        target = _bulk_target()
         if db.query(User).count() > 0:
             seed_admin_demo_data(db)
             db.commit()
+            if target > 0:
+                seed_bulk(db, target_users=target)
             return
 
         skills = {}
@@ -332,5 +344,7 @@ def seed_database():
         db.add(PointsTransaction(user_id=demo.id, amount=200, reason="signup_bonus"))
         seed_admin_demo_data(db)
         db.commit()
+        if target > 0:
+            seed_bulk(db, target_users=target)
     finally:
         db.close()
