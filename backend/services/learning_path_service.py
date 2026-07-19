@@ -94,25 +94,42 @@ def _valid_plan(plan) -> bool:
     return True
 
 
-def _ai_request(client, topic, level, duration):
-    system = (
+def _plan_system_prompt(duration: int) -> str:
+    return (
         "You are a curriculum designer for peer skill-swap sessions. Produce a structured "
         "learning plan as JSON only, no prose. Shape: "
         '{"steps": [{"title": "...", "description": "...", "duration_minutes": <int>}], '
         '"resources": ["..."]}. '
         f"The step durations MUST sum to approximately {duration} minutes."
     )
-    user = json.dumps({"topic": topic, "level": level, "total_duration_minutes": duration})
+
+
+def _plan_user_prompt(topic, level, duration) -> str:
+    return json.dumps({"topic": topic, "level": level, "total_duration_minutes": duration})
+
+
+def _ai_request(client, topic, level, duration):
     resp = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=[
-            {"role": "system", "content": system},
-            {"role": "user", "content": user},
+            {"role": "system", "content": _plan_system_prompt(duration)},
+            {"role": "user", "content": _plan_user_prompt(topic, level, duration)},
         ],
         max_tokens=700,
         temperature=0.5,
     )
     return _extract_json_object(resp.choices[0].message.content.strip())
+
+
+def _gemini_request(topic, level, duration):
+    from services.gemini_client import call_gemini
+
+    content = call_gemini(
+        system=_plan_system_prompt(duration),
+        messages=[{"role": "user", "content": _plan_user_prompt(topic, level, duration)}],
+        max_tokens=900,
+    )
+    return _extract_json_object(content)
 
 
 def generate_learning_path(topic: str, level: str, duration: int) -> tuple[dict, str]:
@@ -121,23 +138,33 @@ def generate_learning_path(topic: str, level: str, duration: int) -> tuple[dict,
     level = normalize_level(level)
     duration = normalize_duration(duration)
 
-    if not is_ai_available():
-        return fallback_plan(topic, level, duration), "fallback"
-
-    client = get_openai_client()
-    if client is None:
-        return fallback_plan(topic, level, duration), "fallback"
-
+    providers = []
+    if is_ai_available():
+        client = get_openai_client()
+        if client is not None:
+            providers.append(("openai", lambda: _ai_request(client, topic, level, duration)))
     try:
-        # Try once, then retry once if the durations are wildly off.
-        for attempt in range(2):
-            plan = _ai_request(client, topic, level, duration)
-            if _valid_plan(plan) and _duration_ok(plan["steps"], duration):
-                plan.setdefault("resources", [])
-                return plan, "ai"
-            logger.info("Learning path attempt %d rejected (duration/shape); retrying", attempt + 1)
-        logger.warning("AI learning path failed validation twice; using fallback template")
+        from services.gemini_client import is_gemini_available
+
+        if is_gemini_available():
+            providers.append(("gemini", lambda: _gemini_request(topic, level, duration)))
     except Exception:
-        logger.exception("AI learning path generation failed; using fallback template")
+        logger.exception("Gemini client unavailable for learning paths")
+
+    for name, request_fn in providers:
+        try:
+            # Try once, then retry once if the durations are wildly off.
+            for attempt in range(2):
+                plan = request_fn()
+                if _valid_plan(plan) and _duration_ok(plan["steps"], duration):
+                    plan.setdefault("resources", [])
+                    return plan, "ai"
+                logger.info(
+                    "%s learning path attempt %d rejected (duration/shape); retrying",
+                    name, attempt + 1,
+                )
+            logger.warning("%s learning path failed validation twice", name)
+        except Exception:
+            logger.exception("%s learning path generation failed", name)
 
     return fallback_plan(topic, level, duration), "fallback"

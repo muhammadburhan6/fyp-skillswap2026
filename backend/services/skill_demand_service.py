@@ -232,16 +232,23 @@ def run_demand_analysis_and_cache(db) -> dict:
         save_cache(data)
         return data
 
+    from services.prompts import SKILL_DEMAND_SYSTEM_PROMPT
+
     try:
         from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
-        from services.prompts import SKILL_DEMAND_SYSTEM_PROMPT
-
         anthropic_ready = is_anthropic_available()
     except Exception:
-        logger.exception("Anthropic client unavailable; using local demand analysis")
+        logger.exception("Anthropic client unavailable; trying next AI provider")
         anthropic_ready = False
 
-    if anthropic_ready:
+    try:
+        from services.gemini_client import is_gemini_available, call_gemini
+        gemini_ready = is_gemini_available()
+    except Exception:
+        logger.exception("Gemini client unavailable; using local demand analysis")
+        gemini_ready = False
+
+    if anthropic_ready or gemini_ready:
         try:
             activity_payload = {
                 "period": "last_30_days",
@@ -250,12 +257,25 @@ def run_demand_analysis_and_cache(db) -> dict:
                 "completed_exchanges": completed_exchanges
             }
 
-            content = call_anthropic(
-                system=SKILL_DEMAND_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": json.dumps(activity_payload)}],
-                model="claude-sonnet-4-6",
-                max_tokens=1000
-            )
+            content = None
+            if anthropic_ready:
+                try:
+                    content = call_anthropic(
+                        system=SKILL_DEMAND_SYSTEM_PROMPT,
+                        messages=[{"role": "user", "content": json.dumps(activity_payload)}],
+                        model="claude-sonnet-4-6",
+                        max_tokens=1000
+                    )
+                except Exception:
+                    logger.exception("Anthropic skill demand failed; trying Gemini")
+            if content is None and gemini_ready:
+                content = call_gemini(
+                    system=SKILL_DEMAND_SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": json.dumps(activity_payload)}],
+                    max_tokens=1000,
+                )
+            if content is None:
+                raise ValueError("No AI provider produced a demand analysis")
 
             parsed = parse_json_safely(content)
             trending_skills = parsed.get("trending_skills", [])
@@ -316,7 +336,7 @@ def run_demand_analysis_and_cache(db) -> dict:
                 save_cache(data)
                 return data
         except Exception:
-            logger.exception("Anthropic skill demand analysis failed; falling back to DB analysis")
+            logger.exception("AI skill demand analysis failed; falling back to DB analysis")
 
     data = run_local_db_analysis(db)
     save_cache(data)

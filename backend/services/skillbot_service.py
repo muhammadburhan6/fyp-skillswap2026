@@ -411,46 +411,67 @@ def chat_reply(db, user, raw_message: str) -> dict:
             _chat_history[user.id] = []
         return {"reply": "Chat history has been reset. How can I help you today?", "mode": "ai"}
 
+    from services.prompts import CHATBOT_SYSTEM_PROMPT
+
     try:
         from services.anthropic_client import is_anthropic_available, call_anthropic
-        from services.prompts import CHATBOT_SYSTEM_PROMPT
 
         anthropic_ready = is_anthropic_available()
     except Exception:
         logger.exception("Anthropic client unavailable; skipping AI mode")
         anthropic_ready = False
 
-    if anthropic_ready:
-        try:
-            # Maintain and update conversation history
-            if user.id not in _chat_history:
-                _chat_history[user.id] = []
+    try:
+        from services.gemini_client import is_gemini_available, call_gemini
 
-            history = _chat_history[user.id]
-            history.append({"role": "user", "content": raw_message})
+        gemini_ready = is_gemini_available()
+    except Exception:
+        logger.exception("Gemini client unavailable; skipping AI mode")
+        gemini_ready = False
 
-            # Keep history to last 20 messages (10 turns)
-            if len(history) > 20:
-                history = history[-20:]
-                _chat_history[user.id] = history
+    if anthropic_ready or gemini_ready:
+        # Maintain and update conversation history
+        if user.id not in _chat_history:
+            _chat_history[user.id] = []
 
-            snapshot = _context_snapshot(db, user)
-            full_system = f"{CHATBOT_SYSTEM_PROMPT}\n\n{snapshot}"
+        history = _chat_history[user.id]
+        history.append({"role": "user", "content": raw_message})
 
-            reply = call_anthropic(
-                system=full_system,
-                messages=history,
-                model="claude-sonnet-4-6",
-                max_tokens=1000,
-            )
+        # Keep history to last 20 messages (10 turns)
+        if len(history) > 20:
+            history = history[-20:]
+            _chat_history[user.id] = history
 
-            if reply:
-                # Add assistant response to history
-                history.append({"role": "assistant", "content": reply})
-                _chat_history[user.id] = history
-                return {"reply": reply, "mode": "ai"}
-        except Exception:
-            logger.exception("Anthropic chat failed; falling back to OpenAI/smart mode")
+        snapshot = _context_snapshot(db, user)
+        full_system = f"{CHATBOT_SYSTEM_PROMPT}\n\n{snapshot}"
+
+        reply = None
+        if anthropic_ready:
+            try:
+                reply = call_anthropic(
+                    system=full_system,
+                    messages=history,
+                    model="claude-sonnet-4-6",
+                    max_tokens=1000,
+                )
+            except Exception:
+                logger.exception("Anthropic chat failed; trying next AI provider")
+
+        if not reply and gemini_ready:
+            try:
+                reply = call_gemini(system=full_system, messages=history, max_tokens=1000)
+            except Exception:
+                logger.exception("Gemini chat failed; falling back to OpenAI/smart mode")
+
+        if reply:
+            # Add assistant response to history
+            history.append({"role": "assistant", "content": reply})
+            _chat_history[user.id] = history
+            return {"reply": reply, "mode": "ai"}
+
+        # Drop the unanswered user turn so failed attempts don't stack duplicates.
+        if history and history[-1].get("role") == "user":
+            history.pop()
 
     if is_ai_available():
         try:

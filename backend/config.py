@@ -76,6 +76,8 @@ class Config:
 
     OPENAI_API_KEY = os.getenv("OPENAI_API_KEY", "")
     ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
+    # Free-tier AI provider (aistudio.google.com key) used when the paid ones are absent.
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
     CORS_ORIGINS = _parse_cors_origins(os.getenv("CORS_ORIGINS", "*"))
 
     SMTP_HOST = os.getenv("SMTP_HOST", "")

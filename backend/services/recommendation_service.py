@@ -107,18 +107,25 @@ def rank_with_ai(user, candidates):
     if not candidates:
         return [], "fallback"
 
+    from services.prompts import SKILL_MATCHING_SYSTEM_PROMPT
+
     try:
         from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
-        from services.prompts import SKILL_MATCHING_SYSTEM_PROMPT
-
         anthropic_ready = is_anthropic_available()
     except Exception:
-        logger.exception("Anthropic client unavailable; using OpenAI/algorithmic ranking")
+        logger.exception("Anthropic client unavailable; using next AI provider or fallback")
         anthropic_ready = False
+
+    try:
+        from services.gemini_client import is_gemini_available, call_gemini
+        gemini_ready = is_gemini_available()
+    except Exception:
+        logger.exception("Gemini client unavailable; using OpenAI/algorithmic ranking")
+        gemini_ready = False
 
     by_id = {str(c["user"].id): c for c in candidates}
 
-    if anthropic_ready:
+    if anthropic_ready or gemini_ready:
         # Build payload for Anthropic
         def get_proficiency_level(u, is_teaching=True):
             if is_teaching:
@@ -149,12 +156,25 @@ def rank_with_ai(user, candidates):
         })
 
         try:
-            content = call_anthropic(
-                system=SKILL_MATCHING_SYSTEM_PROMPT,
-                messages=[{"role": "user", "content": user_prompt}],
-                model="claude-sonnet-4-6",
-                max_tokens=1000,
-            )
+            content = None
+            if anthropic_ready:
+                try:
+                    content = call_anthropic(
+                        system=SKILL_MATCHING_SYSTEM_PROMPT,
+                        messages=[{"role": "user", "content": user_prompt}],
+                        model="claude-sonnet-4-6",
+                        max_tokens=1000,
+                    )
+                except Exception:
+                    logger.exception("Anthropic matching failed; trying Gemini")
+            if content is None and gemini_ready:
+                content = call_gemini(
+                    system=SKILL_MATCHING_SYSTEM_PROMPT,
+                    messages=[{"role": "user", "content": user_prompt}],
+                    max_tokens=1000,
+                )
+            if content is None:
+                raise ValueError("No AI provider produced a ranking")
             parsed = parse_json_safely(content)
             if not isinstance(parsed, dict) or "matches" not in parsed:
                 raise ValueError("Anthropic response is not a JSON object with matches key")
@@ -219,7 +239,7 @@ def rank_with_ai(user, candidates):
             final_recs.sort(key=lambda r: r["score"], reverse=True)
             return final_recs, "ai"
         except Exception:
-            logger.exception("Anthropic matching failed; falling back to OpenAI/algorithmic")
+            logger.exception("AI matching failed; falling back to OpenAI/algorithmic")
 
     # OpenAI Fallback
     if is_ai_available():
