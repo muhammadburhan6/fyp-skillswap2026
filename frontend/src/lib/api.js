@@ -1,7 +1,10 @@
 import axios from 'axios'
 import { getToken, handleUnauthorized } from './authToken'
 
-const api = axios.create({ baseURL: '/api' })
+// Local: Vite proxies /api → Flask. Production: set VITE_API_URL to https://your-api.up.railway.app/api
+const apiBase = import.meta.env.VITE_API_URL || '/api'
+
+const api = axios.create({ baseURL: apiBase })
 
 api.interceptors.request.use((config) => {
   const token = getToken()
