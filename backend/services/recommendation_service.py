@@ -107,12 +107,18 @@ def rank_with_ai(user, candidates):
     if not candidates:
         return [], "fallback"
 
-    from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
-    from services.prompts import SKILL_MATCHING_SYSTEM_PROMPT
+    try:
+        from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
+        from services.prompts import SKILL_MATCHING_SYSTEM_PROMPT
+
+        anthropic_ready = is_anthropic_available()
+    except Exception:
+        logger.exception("Anthropic client unavailable; using OpenAI/algorithmic ranking")
+        anthropic_ready = False
 
     by_id = {str(c["user"].id): c for c in candidates}
 
-    if is_anthropic_available():
+    if anthropic_ready:
         # Build payload for Anthropic
         def get_proficiency_level(u, is_teaching=True):
             if is_teaching:

@@ -411,10 +411,16 @@ def chat_reply(db, user, raw_message: str) -> dict:
             _chat_history[user.id] = []
         return {"reply": "Chat history has been reset. How can I help you today?", "mode": "ai"}
 
-    from services.anthropic_client import is_anthropic_available, call_anthropic
-    from services.prompts import CHATBOT_SYSTEM_PROMPT
+    try:
+        from services.anthropic_client import is_anthropic_available, call_anthropic
+        from services.prompts import CHATBOT_SYSTEM_PROMPT
 
-    if is_anthropic_available():
+        anthropic_ready = is_anthropic_available()
+    except Exception:
+        logger.exception("Anthropic client unavailable; skipping AI mode")
+        anthropic_ready = False
+
+    if anthropic_ready:
         try:
             # Maintain and update conversation history
             if user.id not in _chat_history:

@@ -232,10 +232,16 @@ def run_demand_analysis_and_cache(db) -> dict:
         save_cache(data)
         return data
 
-    from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
-    from services.prompts import SKILL_DEMAND_SYSTEM_PROMPT
+    try:
+        from services.anthropic_client import is_anthropic_available, call_anthropic, parse_json_safely
+        from services.prompts import SKILL_DEMAND_SYSTEM_PROMPT
 
-    if is_anthropic_available():
+        anthropic_ready = is_anthropic_available()
+    except Exception:
+        logger.exception("Anthropic client unavailable; using local demand analysis")
+        anthropic_ready = False
+
+    if anthropic_ready:
         try:
             activity_payload = {
                 "period": "last_30_days",
