@@ -130,7 +130,7 @@ def test_greeting_and_default(make_user):
         user = _get_user(db, ref)
         assert "Greet" in smart_reply(db, user, "hi")
         default = smart_reply(db, user, "zzzqqq unrelated")
-        assert "trending" in default  # helpful nudge
+        assert "skill name" in default  # nudges toward typing a skill name
     finally:
         db.close()
 
