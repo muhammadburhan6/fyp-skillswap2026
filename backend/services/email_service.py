@@ -7,11 +7,15 @@ demonstrable end-to-end without a mail server.
 
 send_email() returns True only when a real SMTP send succeeded, so callers
 like the password-reset flow can keep returning dev links when email is off.
+
+SMTP runs in a native thread (eventlet tpool) so green sockets do not hang
+TLS handshakes to Gmail on Railway/gunicorn-eventlet.
 """
 
 import logging
 import re
 import smtplib
+import ssl
 import time
 from email.message import EmailMessage
 from pathlib import Path
@@ -21,6 +25,7 @@ from config import Config
 logger = logging.getLogger(__name__)
 
 OUTBOX_DIR = Path(__file__).resolve().parent.parent / "data" / "outbox"
+SMTP_TIMEOUT_SECONDS = 30
 
 
 def _write_outbox(to_address: str, subject: str, body: str) -> None:
@@ -37,6 +42,57 @@ def _write_outbox(to_address: str, subject: str, body: str) -> None:
         logger.info("Email outbox (SMTP off): %s -> %s", subject, path.name)
     except Exception:
         logger.exception("Failed to write outbox email to %s", to_address)
+
+
+def _smtp_send_message(message: EmailMessage) -> None:
+    """Blocking SMTP send using real OS sockets (safe to call via tpool)."""
+    host = Config.SMTP_HOST
+    port = int(Config.SMTP_PORT or 587)
+    user = Config.SMTP_USER
+    password = Config.SMTP_PASSWORD
+    context = ssl.create_default_context()
+
+    attempts = [(host, port)]
+    # Gmail on cloud hosts: if 587 STARTTLS hangs/blocks, try SSL 465.
+    if host.lower() == "smtp.gmail.com" and port != 465:
+        attempts.append((host, 465))
+
+    last_error: Exception | None = None
+    for attempt_host, attempt_port in attempts:
+        try:
+            if attempt_port == 465:
+                with smtplib.SMTP_SSL(
+                    attempt_host, attempt_port, timeout=SMTP_TIMEOUT_SECONDS, context=context
+                ) as server:
+                    server.login(user, password)
+                    server.send_message(message)
+            else:
+                with smtplib.SMTP(attempt_host, attempt_port, timeout=SMTP_TIMEOUT_SECONDS) as server:
+                    server.ehlo()
+                    server.starttls(context=context)
+                    server.ehlo()
+                    server.login(user, password)
+                    server.send_message(message)
+            return
+        except Exception as exc:
+            last_error = exc
+            print(
+                f"[email] SMTP {attempt_host}:{attempt_port} failed: "
+                f"{type(exc).__name__}: {exc}",
+                flush=True,
+            )
+    if last_error:
+        raise last_error
+
+
+def _run_smtp(message: EmailMessage) -> None:
+    """Run SMTP off the eventlet hub so TLS does not hang."""
+    try:
+        from eventlet import tpool
+
+        tpool.execute(_smtp_send_message, message)
+    except ImportError:
+        _smtp_send_message(message)
 
 
 def send_email(to_address: str, subject: str, body: str, html: str | None = None) -> bool:
@@ -66,10 +122,7 @@ def send_email(to_address: str, subject: str, body: str, html: str | None = None
         message.add_alternative(html, subtype="html")
 
     try:
-        with smtplib.SMTP(Config.SMTP_HOST, Config.SMTP_PORT, timeout=10) as server:
-            server.starttls()
-            server.login(Config.SMTP_USER, Config.SMTP_PASSWORD)
-            server.send_message(message)
+        _run_smtp(message)
         print(f"[email] OK — delivered to SMTP for {to_address!r}", flush=True)
         return True
     except Exception as exc:
