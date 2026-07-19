@@ -9,6 +9,8 @@ const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
   { to: '/discover', label: 'Matches' },
   { to: '/messenger', label: 'Chat', badge: true },
+  { to: '/calendar', label: 'Sessions' },
+  { to: '/materials', label: 'Materials' },
   { to: '/progress', label: 'Progress' },
   { to: '/wallet', label: 'Wallet' },
 ]
@@ -27,7 +29,10 @@ function notificationLabel(n) {
     session_booked: 'A session was booked',
     session_completed: 'A session was completed',
     session_reminder: 'Upcoming session reminder',
-    message: 'New message',
+    material_published: 'New teaching material available',
+    paid_session_booked: 'New paid session booked',
+    paid_session_confirmed: 'Paid session confirmed',
+    new_review: 'Someone left you a review',
   }
   return map[n.type] || n.type || 'Notification'
 }
@@ -42,6 +47,10 @@ const NOTIFICATION_ROUTES = {
   session_completed: '/calendar',
   session_reminder: '/calendar',
   points_granted: '/wallet',
+  material_published: '/materials',
+  paid_session_booked: '/calendar',
+  paid_session_confirmed: '/calendar',
+  new_review: '/profile',
 }
 
 function NotificationBell() {
@@ -140,6 +149,8 @@ function navActive(label, pathname) {
   if (label === 'Dashboard') return pathname === '/dashboard'
   if (label === 'Matches') return pathname === '/discover' || pathname === '/matches'
   if (label === 'Chat') return pathname === '/messenger' || pathname === '/chat'
+  if (label === 'Sessions') return pathname === '/calendar' || pathname === '/exchange'
+  if (label === 'Materials') return pathname === '/materials'
   if (label === 'Progress') return pathname === '/progress'
   if (label === 'Wallet') return pathname === '/wallet'
   return false

@@ -1,40 +1,13 @@
 from datetime import datetime, timezone
-import os
-import uuid
-from pathlib import Path
 
 from flask import Blueprint, jsonify, request
-from werkzeug.utils import secure_filename
 
 from database.models import Conversation, Message, SessionLocal, User
 from utils.auth_middleware import require_auth
 from utils.serializers import user_to_dict
+from utils.uploads import UploadError, save_upload
 
 chat_bp = Blueprint("chat", __name__)
-
-UPLOAD_DIR = Path(__file__).resolve().parent.parent / "uploads"
-ALLOWED_EXTENSIONS = {
-    "png", "jpg", "jpeg", "gif", "webp", "pdf", "doc", "docx",
-    "txt", "zip", "rar", "ppt", "pptx", "xls", "xlsx", "mp4", "mp3", "webm", "mov", "m4v",
-}
-MAX_UPLOAD_BYTES = 50 * 1024 * 1024  # 50 MB (screen recordings / videos)
-
-
-def _uploads_dir() -> Path:
-    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-    return UPLOAD_DIR
-
-
-def _allowed(filename: str) -> bool:
-    return "." in filename and filename.rsplit(".", 1)[-1].lower() in ALLOWED_EXTENSIONS
-
-
-def _is_image(filename: str) -> bool:
-    return filename.rsplit(".", 1)[-1].lower() in {"png", "jpg", "jpeg", "gif", "webp"}
-
-
-def _is_video(filename: str) -> bool:
-    return filename.rsplit(".", 1)[-1].lower() in {"mp4", "webm", "mov", "m4v"}
 
 
 def _message_dict(m: Message) -> dict:
@@ -140,36 +113,8 @@ def send_message(user, conv_id):
 def upload_attachment(user):
     if "file" not in request.files:
         return jsonify({"error": "No file provided"}), 400
-    file = request.files["file"]
-    if not file or not file.filename:
-        return jsonify({"error": "Empty filename"}), 400
-    if not _allowed(file.filename):
-        return jsonify({"error": "File type not allowed. Use images, video (mp4/webm), PDF, or Office files."}), 400
-
-    file.seek(0, os.SEEK_END)
-    size = file.tell()
-    file.seek(0)
-    if size > MAX_UPLOAD_BYTES:
-        mb = MAX_UPLOAD_BYTES // (1024 * 1024)
-        return jsonify({"error": f"File too large (max {mb} MB). Compress the video or send a shorter clip."}), 400
-
-    raw_name = file.filename
-    original = secure_filename(raw_name) or f"file.{raw_name.rsplit('.', 1)[-1].lower()}"
-    ext = original.rsplit(".", 1)[-1].lower()
-    stored = f"{uuid.uuid4().hex}.{ext}"
-    dest = _uploads_dir() / stored
-    file.save(dest)
-
-    url = f"/uploads/{stored}"
-    if _is_image(original):
-        msg_type = "image"
-    elif _is_video(original):
-        msg_type = "video"
-    else:
-        msg_type = "file"
-    return jsonify({
-        "url": url,
-        "name": original,
-        "type": msg_type,
-        "size": size,
-    }), 201
+    try:
+        result = save_upload(request.files["file"], subdir="")
+    except UploadError as exc:
+        return jsonify({"error": exc.message}), exc.status
+    return jsonify(result), 201

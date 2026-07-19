@@ -1,8 +1,10 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import AppShell from '../components/layout/AppShell'
 import api from '../lib/api'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSocket } from '../hooks/useSocket'
+import { parseApiDate } from '../lib/dateTime'
 
 const EMOJIS = [
   '😀', '😁', '😂', '🤣', '😊', '😍', '😘', '😎', '🤔', '😢', '😭', '😡',
@@ -22,7 +24,9 @@ function initials(name = '') {
 function formatTime(value) {
   if (!value) return ''
   try {
-    return new Date(value).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    const date = parseApiDate(value)
+    if (Number.isNaN(date.getTime())) return ''
+    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   } catch {
     return ''
   }
@@ -246,6 +250,14 @@ export default function Messenger() {
                     Online
                   </p>
                 </div>
+                {active.other_user?.id && (
+                  <Link
+                    to={`/materials?partner=${active.other_user.id}`}
+                    className="btn-outline shrink-0 px-3 py-1.5 text-xs"
+                  >
+                    Materials
+                  </Link>
+                )}
               </header>
 
               <div className="flex flex-1 flex-col gap-2 overflow-y-auto px-4 py-5 sm:px-6">

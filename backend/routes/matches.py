@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
 
 from database.models import Match, SessionLocal, User
+from routes.reviews import rating_summaries_for_users, skill_rating_summaries_for_users
 from services.matching_service import discover_matches
 from services.notification_service import notify
 from utils.auth_middleware import require_auth
@@ -9,13 +10,55 @@ from utils.serializers import user_to_dict
 matches_bp = Blueprint("matches", __name__)
 
 
+def _rating_rank(summary: dict) -> tuple:
+    """Bayesian rating: avoids one 5-star review outranking proven teachers."""
+    avg = summary.get("average_rating")
+    count = int(summary.get("review_count") or 0)
+    if avg is None or count == 0:
+        return (0.0, 0)
+    weighted = ((float(avg) * count) + (3.5 * 5)) / (count + 5)
+    return (weighted, count)
+
+
 @matches_bp.route("/discover", methods=["GET"])
 @require_auth
 def discover(user):
     skill_query = (request.args.get("skill") or "").strip() or None
     db = SessionLocal()
     try:
-        results = discover_matches(db, user.id, skill_query=skill_query)
+        # Pull a broad candidate set, then apply review-aware ranking here.
+        results = discover_matches(db, user.id, limit=1000, skill_query=skill_query)
+        candidate_ids = [r["user"].id for r in results]
+        overall_summaries = rating_summaries_for_users(db, candidate_ids)
+        skill_summaries = skill_rating_summaries_for_users(db, candidate_ids)
+
+        enriched = []
+        for result in results:
+            candidate_id = result["user"].id
+            is_skill_search = result.get("search_match_type") == "skill"
+            if is_skill_search:
+                summary = skill_summaries.get(
+                    (candidate_id, result["skill_offered"].casefold()),
+                    {"average_rating": None, "review_count": 0},
+                )
+                rating_scope = "skill"
+            else:
+                summary = overall_summaries.get(
+                    candidate_id,
+                    {"average_rating": None, "review_count": 0},
+                )
+                rating_scope = "overall"
+            enriched.append((result, summary, rating_scope))
+
+        enriched.sort(
+            key=lambda item: (
+                *_rating_rank(item[1]),
+                item[0].get("is_reciprocal", False),
+                item[0]["match_score"],
+            ),
+            reverse=True,
+        )
+
         return jsonify({
             "matches": [
                 {
@@ -23,8 +66,13 @@ def discover(user):
                     "match_score": r["match_score"],
                     "skill_offered": r["skill_offered"],
                     "is_reciprocal": r.get("is_reciprocal", False),
+                    "search_match_type": r.get("search_match_type"),
+                    "average_rating": summary.get("average_rating"),
+                    "review_count": summary.get("review_count", 0),
+                    "rating_scope": rating_scope,
+                    "rating_skill": r["skill_offered"] if rating_scope == "skill" else None,
                 }
-                for r in results
+                for r, summary, rating_scope in enriched[:20]
             ]
         })
     finally:

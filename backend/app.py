@@ -12,9 +12,11 @@ from database.mysql_setup import ensure_mysql_database
 from routes.admin import admin_bp
 from routes.ai import ai_bp
 from routes.auth import auth_bp
-from routes.chat import chat_bp, UPLOAD_DIR
+from routes.chat import chat_bp
 from routes.dashboard import dashboard_bp
+from routes.lms import lms_bp
 from routes.matches import matches_bp
+from routes.payments import payments_bp
 from routes.newsletter import newsletter_bp
 from routes.notifications import notifications_bp
 from routes.progress import progress_bp
@@ -24,6 +26,7 @@ from routes.sessions import sessions_bp
 from routes.users import users_bp
 from routes.wallet import wallet_bp
 from services.seed_db import seed_database
+from utils.uploads import UPLOAD_DIR
 
 socketio = SocketIO(cors_allowed_origins="*", async_mode="eventlet")
 online_users = set()
@@ -132,6 +135,8 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(newsletter_bp, url_prefix="/api/newsletter")
     app.register_blueprint(recommendations_bp, url_prefix="/api/recommendations")
     app.register_blueprint(reviews_bp, url_prefix="/api/reviews")
+    app.register_blueprint(lms_bp, url_prefix="/api/lms")
+    app.register_blueprint(payments_bp, url_prefix="/api/payments")
 
     socketio.init_app(app)
     register_socket_events()

@@ -98,6 +98,11 @@ class Config:
     SESSION_POINT_COST = 10
     TEACH_POINT_REWARD = 15
 
+    # Stripe payment integration
+    STRIPE_SECRET_KEY = os.getenv("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.getenv("STRIPE_WEBHOOK_SECRET", "")
+    PLATFORM_FEE_PERCENT = int(os.getenv("PLATFORM_FEE_PERCENT", "10"))
+
     @classmethod
     def database_label(cls) -> str:
         if cls.SQLALCHEMY_DATABASE_URI.startswith("mysql"):

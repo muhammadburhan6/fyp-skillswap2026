@@ -69,6 +69,31 @@ export default {
       timeout: 120000,
     }).then((r) => r.data)
   },
+  getMyCollections: () => api.get('/lms/collections').then((r) => r.data),
+  createCollection: (data) => api.post('/lms/collections', data).then((r) => r.data),
+  updateCollection: (id, data) => api.patch(`/lms/collections/${id}`, data).then((r) => r.data),
+  deleteCollection: (id) => api.delete(`/lms/collections/${id}`).then((r) => r.data),
+  getCollectionItems: (id) => api.get(`/lms/collections/${id}/items`).then((r) => r.data),
+  createMaterialItem: (collectionId, data) =>
+    api.post(`/lms/collections/${collectionId}/items`, data).then((r) => r.data),
+  updateMaterialItem: (id, data) => api.patch(`/lms/items/${id}`, data).then((r) => r.data),
+  deleteMaterialItem: (id) => api.delete(`/lms/items/${id}`).then((r) => r.data),
+  uploadLmsFile: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post('/lms/upload', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 120000,
+    }).then((r) => r.data)
+  },
+  getLmsPartners: () => api.get('/lms/partners').then((r) => r.data),
+  getPartnerCollections: (userId) =>
+    api.get(`/lms/partners/${userId}/collections`).then((r) => r.data),
+  getTeacherPricing: (userId) => api.get(`/payments/pricing/${userId}`).then((r) => r.data),
+  setMyPricing: (data) => api.put('/payments/pricing', data).then((r) => r.data),
+  deleteMyPricing: (skillId) => api.delete(`/payments/pricing/${skillId}`).then((r) => r.data),
+  createCheckout: (data) => api.post('/payments/checkout', data).then((r) => r.data),
+  getMyEarnings: () => api.get('/payments/earnings').then((r) => r.data),
   getWallet: (userId) => api.get(`/wallet/${userId}`).then((r) => r.data),
   getTransactions: (userId) => api.get(`/wallet/${userId}/transactions`).then((r) => r.data),
   claimDailyBonus: () => api.post('/wallet/daily-bonus').then((r) => r.data),

@@ -11,6 +11,7 @@ from sqlalchemy import (
     String,
     Table,
     Text,
+    UniqueConstraint,
     create_engine,
     inspect,
     text,
@@ -187,6 +188,9 @@ class Session(Base):
     learning_path = Column(Text, nullable=True)
     learning_path_mode = Column(String(20), nullable=True)
     learning_path_generated_at = Column(DateTime, nullable=True)
+    # swap | paid
+    session_type = Column(String(10), default="swap")
+    payment_id = Column(Integer, ForeignKey("payment_records.id"), nullable=True)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
@@ -248,6 +252,106 @@ class NewsletterSubscriber(Base):
     subscribed_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+# LMS materials — teacher-owned content visible to accepted/session partners.
+class MaterialCollection(Base):
+    __tablename__ = "material_collections"
+    __table_args__ = (
+        UniqueConstraint("owner_id", "skill_id", name="uq_material_collection_owner_skill"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    skill_id = Column(Integer, ForeignKey("skills.id"), nullable=False)
+    title = Column(String(200), nullable=False, default="")
+    description = Column(Text, default="")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    items = relationship(
+        "MaterialItem",
+        back_populates="collection",
+        cascade="all, delete-orphan",
+        order_by="MaterialItem.sort_order",
+    )
+
+
+class MaterialItem(Base):
+    __tablename__ = "material_items"
+
+    id = Column(Integer, primary_key=True)
+    collection_id = Column(Integer, ForeignKey("material_collections.id"), nullable=False)
+    title = Column(String(200), nullable=False)
+    # file | link | note
+    item_type = Column(String(20), nullable=False, default="note")
+    # draft | published
+    visibility = Column(String(20), nullable=False, default="draft")
+    body = Column(Text, default="")
+    external_url = Column(String(1024), nullable=True)
+    file_url = Column(String(512), nullable=True)
+    file_name = Column(String(255), nullable=True)
+    file_size = Column(Integer, nullable=True)
+    mime_hint = Column(String(40), nullable=True)
+    sort_order = Column(Integer, default=0)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+    collection = relationship("MaterialCollection", back_populates="items")
+
+
+# Paid sessions — teacher rate card and Stripe payment ledger.
+class SkillPricing(Base):
+    __tablename__ = "skill_pricing"
+    __table_args__ = (
+        UniqueConstraint("user_id", "skill_id", name="uq_skill_pricing_user_skill"),
+    )
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    skill_id = Column(Integer, ForeignKey("skills.id"), nullable=False)
+    price_usd = Column(Float, nullable=False)
+    currency = Column(String(3), default="usd")
+    is_active = Column(Boolean, default=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
+class PaymentRecord(Base):
+    __tablename__ = "payment_records"
+
+    id = Column(Integer, primary_key=True)
+    learner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    teacher_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    skill_id = Column(Integer, ForeignKey("skills.id"), nullable=True)
+    scheduled_at = Column(DateTime, nullable=True)
+    amount_cents = Column(Integer, nullable=False)
+    currency = Column(String(3), default="usd")
+    platform_fee_cents = Column(Integer, default=0)
+    teacher_earnings_cents = Column(Integer, default=0)
+    stripe_checkout_id = Column(String(255), unique=True, nullable=False)
+    stripe_payment_intent_id = Column(String(255), nullable=True)
+    # pending | paid | refunded | failed
+    status = Column(String(20), default="pending")
+    session_id = Column(Integer, ForeignKey("sessions.id"), nullable=True)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    updated_at = Column(
+        DateTime,
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
+
+
 def migrate_schema():
     inspector = inspect(engine)
     if "users" not in inspector.get_table_names():
@@ -283,6 +387,10 @@ def migrate_schema():
                 conn.execute(text("ALTER TABLE sessions ADD COLUMN learning_path_mode VARCHAR(20)"))
             if "learning_path_generated_at" not in session_cols:
                 conn.execute(text("ALTER TABLE sessions ADD COLUMN learning_path_generated_at DATETIME"))
+            if "session_type" not in session_cols:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN session_type VARCHAR(10) DEFAULT 'swap'"))
+            if "payment_id" not in session_cols:
+                conn.execute(text("ALTER TABLE sessions ADD COLUMN payment_id INTEGER"))
 
     if "messages" in inspector.get_table_names():
         msg_cols = {col["name"] for col in inspector.get_columns("messages")}

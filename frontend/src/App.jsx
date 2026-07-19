@@ -16,6 +16,7 @@ import Calendar from './pages/Calendar'
 import Wallet from './pages/Wallet'
 import Profile from './pages/Profile'
 import Progress from './pages/Progress'
+import Materials from './pages/Materials'
 import Settings from './pages/Settings'
 import Admin from './pages/Admin'
 
@@ -48,6 +49,7 @@ export default function App() {
             <Route path="/wallet" element={<ProtectedRoute><Wallet /></ProtectedRoute>} />
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
+            <Route path="/materials" element={<ProtectedRoute><Materials /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
             {/* legacy redirects */}
             <Route path="/matches" element={<ProtectedRoute><Discover /></ProtectedRoute>} />

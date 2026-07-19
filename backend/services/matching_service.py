@@ -94,26 +94,47 @@ def discover_matches(db, user_id: int, limit: int = 20, skill_query: str | None 
         .all()
     )
 
-    # Skill search: only candidates who teach a matching skill, always shown
-    # even when the general compatibility score would be 0.
+    # Search teacher names and taught skills. A skill hit wins when both match,
+    # because it provides the relevant skill for per-skill rating/ranking.
     if skill_query:
-        needle = skill_query.strip().lower()
+        needle = skill_query.strip().casefold()
         matched = []
         for candidate in candidates:
-            hit = next(
-                (s.name for s in candidate.skills_teach if needle in s.name.lower()),
+            skill_hit = next(
+                (s.name for s in candidate.skills_teach if needle in s.name.casefold()),
                 None,
             )
-            if hit:
-                matched.append((candidate, hit))
+            name_hit = needle in (candidate.name or "").casefold()
+            if not skill_hit and not name_hit:
+                continue
+            # Discovery is for finding teachers, so omit name matches who do
+            # not offer any skill.
+            if not candidate.skills_teach:
+                continue
+            offered = skill_hit
+            if offered is None:
+                user_learn_keys = skill_keys(user.skills_learn)
+                offered = next(
+                    (
+                        s.name for s in candidate.skills_teach
+                        if normalize_skill_key(s.name) in user_learn_keys
+                    ),
+                    candidate.skills_teach[0].name,
+                )
+            matched.append((
+                candidate,
+                offered,
+                "skill" if skill_hit else "name",
+            ))
         matched.sort(key=lambda pair: compute_match_score(user, pair[0]), reverse=True)
         results = []
-        for candidate, skill_name in matched[:limit]:
+        for candidate, skill_name, match_type in matched[:limit]:
             overlap = skill_overlap(user, candidate)
             results.append({
                 "user": candidate,
                 "match_score": round(compute_match_score(user, candidate), 1),
                 "skill_offered": skill_name,
+                "search_match_type": match_type,
                 "is_reciprocal": overlap["is_reciprocal"],
                 "overlap": overlap,
             })
@@ -146,6 +167,7 @@ def discover_matches(db, user_id: int, limit: int = 20, skill_query: str | None 
             "user": candidate,
             "match_score": round(score, 1),
             "skill_offered": skill,
+            "search_match_type": "recommendation",
             "is_reciprocal": overlap["is_reciprocal"],
             "overlap": overlap,
         })
