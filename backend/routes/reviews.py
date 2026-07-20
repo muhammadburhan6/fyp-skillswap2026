@@ -108,10 +108,12 @@ def create_review(user):
         s = db.get(SwapSession, session_id)
         if not s:
             return jsonify({"error": "Session not found"}), 404
-        if s.learner_id != user.id:
-            return jsonify({"error": "Only the learner can review this session"}), 403
+        if user.id not in (s.learner_id, s.teacher_id):
+            return jsonify({"error": "Only session participants can leave a review"}), 403
         if s.status != "completed":
             return jsonify({"error": "Session must be completed before it can be reviewed"}), 400
+
+        reviewee_id = s.teacher_id if user.id == s.learner_id else s.learner_id
 
         existing = (
             db.query(Review)
@@ -124,35 +126,34 @@ def create_review(user):
         review = Review(
             session_id=s.id,
             reviewer_id=user.id,
-            reviewee_id=s.teacher_id,
+            reviewee_id=reviewee_id,
             rating=rating,
             comment=comment,
         )
         db.add(review)
         db.flush()
 
-        teacher = db.get(User, s.teacher_id)
-        if teacher and rating == 5:
-            teacher.points_balance = (teacher.points_balance or 0) + 5
+        partner = db.get(User, reviewee_id)
+        if partner and rating == 5:
+            partner.points_balance = (partner.points_balance or 0) + 5
             db.add(PointsTransaction(
-                user_id=teacher.id,
+                user_id=partner.id,
                 amount=5,
                 reason="five_star_review",
                 session_id=s.id,
             ))
 
-        check_and_award_badges(db, s.teacher_id)
+        check_and_award_badges(db, reviewee_id)
 
         skill_name = _session_skill_name(db, s.id)
-        if s.teacher_id:
-            notify(db, s.teacher_id, "new_review", {
-                "review_id": review.id,
-                "session_id": s.id,
-                "rating": rating,
-                "from_user_id": user.id,
-                "from_name": user.name,
-                "skill": skill_name,
-            })
+        notify(db, reviewee_id, "new_review", {
+            "review_id": review.id,
+            "session_id": s.id,
+            "rating": rating,
+            "from_user_id": user.id,
+            "from_name": user.name,
+            "skill": skill_name,
+        })
 
         db.commit()
         return jsonify({

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import api from '../lib/api'
+import { useAuthStore } from '../store/useAuthStore'
 
 const SATISFACTION = {
   1: 'Very dissatisfied',
@@ -10,6 +11,7 @@ const SATISFACTION = {
 }
 
 export default function SessionReview({ session, onSubmitted }) {
+  const user = useAuthStore((s) => s.user)
   const alreadyReviewed = Boolean(session.reviewed_by_me)
   const [rating, setRating] = useState(0)
   const [hover, setHover] = useState(0)
@@ -17,6 +19,11 @@ export default function SessionReview({ session, onSubmitted }) {
   const [status, setStatus] = useState(alreadyReviewed ? 'done' : 'idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [savedRating, setSavedRating] = useState(session.my_rating || null)
+
+  const isLearner = user?.id === session.learner_id
+  const partnerName = isLearner
+    ? (session.teacher_name || 'your teacher')
+    : (session.learner_name || 'your learner')
 
   if (status === 'done' || alreadyReviewed) {
     const stars = savedRating || session.my_rating
@@ -26,7 +33,7 @@ export default function SessionReview({ session, onSubmitted }) {
         <p className="mt-1 text-sm text-foreground">
           {stars ? (
             <>
-              You rated this teacher{' '}
+              You rated {partnerName}{' '}
               <span className="text-accent">{'★'.repeat(stars)}</span>
               <span className="text-mutedForeground"> ({stars}/5 · {SATISFACTION[stars]})</span>
             </>
@@ -70,7 +77,7 @@ export default function SessionReview({ session, onSubmitted }) {
             User satisfaction
           </p>
           <p className="mt-1 text-sm text-foreground">
-            How satisfied were you with {session.teacher_name || 'your teacher'}?
+            How satisfied were you with {partnerName}?
           </p>
         </div>
         {active > 0 && (
