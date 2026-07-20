@@ -29,7 +29,8 @@ export default {
   login: (email, password) => api.post('/auth/login', { email, password }).then((r) => r.data),
   googleLogin: (idToken) => api.post('/auth/google', { id_token: idToken }).then((r) => r.data),
   register: (data) => api.post('/auth/register', data).then((r) => r.data),
-  forgotPassword: (email) => api.post('/auth/forgot-password', { email }).then((r) => r.data),
+  forgotPassword: (email, password) =>
+    api.post('/auth/forgot-password', { email, ...(password ? { password } : {}) }).then((r) => r.data),
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }).then((r) => r.data),
   getMe: () => api.get('/users/me').then((r) => r.data),
   updateMe: (data) => api.put('/users/me', data).then((r) => r.data),

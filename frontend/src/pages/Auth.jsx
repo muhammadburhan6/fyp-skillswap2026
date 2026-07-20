@@ -20,13 +20,27 @@ export default function Auth() {
   const [forgotMode, setForgotMode] = useState(false)
   const [forgotMessage, setForgotMessage] = useState('')
   const [forgotLink, setForgotLink] = useState('')
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
 
   const setMode = (signup) => {
     setError('')
     setForgotMode(false)
     setForgotMessage('')
     setForgotLink('')
+    setNewPassword('')
+    setConfirmPassword('')
     setParams(signup ? { mode: 'signup' } : {})
+  }
+
+  const openForgot = () => {
+    setError('')
+    setForgotMessage('')
+    setForgotLink('')
+    setPassword('')
+    setNewPassword('')
+    setConfirmPassword('')
+    setForgotMode(true)
   }
 
   const handleForgot = async (e) => {
@@ -38,13 +52,23 @@ export default function Auth() {
       setError('Enter your email first.')
       return
     }
+    if (newPassword.length < 6) {
+      setError('Password must be at least 6 characters.')
+      return
+    }
+    if (newPassword !== confirmPassword) {
+      setError('Passwords do not match.')
+      return
+    }
     setLoading(true)
     try {
-      const data = await api.forgotPassword(email.trim())
-      setForgotMessage(data.message || 'If that email is registered, a reset link has been sent.')
+      const data = await api.forgotPassword(email.trim(), newPassword)
+      setForgotMessage(data.message || 'If that email is registered, your password has been updated.')
       if (data.reset_link) setForgotLink(data.reset_link)
+      setNewPassword('')
+      setConfirmPassword('')
     } catch (err) {
-      setError(err.response?.data?.error || err.message || 'Could not send reset link.')
+      setError(err.response?.data?.error || err.message || 'Could not update password.')
     } finally {
       setLoading(false)
     }
@@ -162,7 +186,7 @@ export default function Auth() {
           </h1>
           <p className="mt-2 text-mutedForeground">
             {forgotMode
-              ? 'Enter your email and we will send a reset link.'
+              ? 'Enter your email and choose a new password.'
               : isAdminMode
                 ? 'Sign in with your admin credentials to open the control panel.'
                 : isSignup
@@ -181,6 +205,34 @@ export default function Auth() {
                 <label htmlFor="email" className="mb-2 block text-xs font-medium text-mutedForeground">Email</label>
                 <input id="email" className="input-field" type="email" placeholder="you@example.com" value={email} onChange={(e) => setEmail(e.target.value)} required autoComplete="email" />
               </div>
+              <div>
+                <label htmlFor="new-password" className="mb-2 block text-xs font-medium text-mutedForeground">New password</label>
+                <input
+                  id="new-password"
+                  className="input-field"
+                  type="password"
+                  placeholder="At least 6 characters"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
+              <div>
+                <label htmlFor="confirm-password" className="mb-2 block text-xs font-medium text-mutedForeground">Confirm password</label>
+                <input
+                  id="confirm-password"
+                  className="input-field"
+                  type="password"
+                  placeholder="Re-enter new password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  minLength={6}
+                  autoComplete="new-password"
+                />
+              </div>
               {error && <p className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-300">{error}</p>}
               {forgotMessage && <p className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-foreground">{forgotMessage}</p>}
               {forgotLink && (
@@ -189,9 +241,20 @@ export default function Auth() {
                 </p>
               )}
               <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
-                {loading ? 'Please wait…' : 'Send reset link'}
+                {loading ? 'Please wait…' : 'Update password →'}
               </button>
-              <button type="button" onClick={() => setForgotMode(false)} className="btn-ghost w-full text-sm">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotMode(false)
+                  setForgotMessage('')
+                  setForgotLink('')
+                  setNewPassword('')
+                  setConfirmPassword('')
+                  setError('')
+                }}
+                className="btn-ghost w-full text-sm"
+              >
                 ← Back to login
               </button>
             </form>
@@ -211,7 +274,7 @@ export default function Auth() {
                 <label htmlFor="password" className="mb-2 block text-xs font-medium text-mutedForeground">Password</label>
                 <input id="password" className="input-field" type="password" placeholder={isSignup ? 'Create a password' : 'Your password'} value={password} onChange={(e) => setPassword(e.target.value)} required minLength={isSignup ? 6 : undefined} autoComplete={isSignup ? 'new-password' : 'current-password'} />
                 {!isSignup && (
-                  <button type="button" onClick={() => setForgotMode(true)} className="btn-ghost mt-2 text-xs">
+                  <button type="button" onClick={openForgot} className="btn-ghost mt-2 text-xs">
                     Forgot password?
                   </button>
                 )}
