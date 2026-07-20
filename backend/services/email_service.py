@@ -297,7 +297,11 @@ def _notification_body(notif_type: str, to_name: str, payload: dict) -> str:
         ),
         "paid_session_confirmed": (
             f"Your payment went through"
-            + (f" (${payload.get('paid_usd'):.2f})" if isinstance(payload.get("paid_usd"), (int, float)) else "")
+            + (
+                f" (${float(payload['paid_usd']):.2f})"
+                if isinstance(payload.get("paid_usd"), (int, float))
+                else ""
+            )
             + f". Your paid session with {teacher} for {skill} is confirmed. "
             "See your calendar for details."
         ),
