@@ -170,13 +170,44 @@ def register():
 @auth_bp.route("/forgot-password", methods=["POST"])
 @limiter.limit("3 per hour")
 def forgot_password():
+    """Forgot-password flow.
+
+    Preferred FYP UX: client sends email + new password (+ confirm on UI).
+    If the email exists, the password is updated immediately.
+
+    Legacy / email-link mode: if only email is sent, a reset link is emailed
+    (and returned in DEBUG when SMTP fails).
+    """
     data = request.get_json() or {}
     email = data.get("email", "").strip().lower()
-    # Always return a generic success to avoid leaking which emails are registered.
-    generic = {"message": "If that email is registered, a reset link has been sent."}
+    new_password = (data.get("password") or data.get("new_password") or "").strip()
 
     if not email:
         return jsonify({"error": "Email is required"}), 400
+
+    # --- Direct reset: email + new password (confirm is validated on the client) ---
+    if new_password:
+        if len(new_password) < 6:
+            return jsonify({"error": "Password must be at least 6 characters"}), 400
+
+        # Generic message so we don't reveal whether the email is registered.
+        generic_ok = {"message": "If that email is registered, your password has been updated. You can log in now."}
+
+        db = SessionLocal()
+        try:
+            user = db.query(User).filter_by(email=email).first()
+            if user:
+                user.password_hash = hash_password(new_password)
+                db.commit()
+            return jsonify(generic_ok)
+        except Exception:
+            db.rollback()
+            return jsonify({"error": "Could not update password. Please try again."}), 500
+        finally:
+            db.close()
+
+    # --- Email-link mode (no password in body) ---
+    generic = {"message": "If that email is registered, a reset link has been sent."}
 
     db = SessionLocal()
     try:
