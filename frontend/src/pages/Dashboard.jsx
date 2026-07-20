@@ -115,7 +115,8 @@ export default function Dashboard() {
                         {session.status}
                       </span>
                     </div>
-                    {session.status === 'completed' && session.learner_id === userId && (
+                    {session.status === 'completed' &&
+                      (session.learner_id === userId || session.teacher_id === userId) && (
                       <SessionReview session={session} onSubmitted={load} />
                     )}
                   </div>
@@ -253,7 +254,8 @@ export default function Dashboard() {
                     {session.skill ? (
                       <p className="mt-1 text-mutedForeground">{session.skill}</p>
                     ) : null}
-                    {session.status === 'completed' && session.learner_id === userId && (
+                    {session.status === 'completed' &&
+                      (session.learner_id === userId || session.teacher_id === userId) && (
                       <SessionReview session={session} onSubmitted={load} />
                     )}
                   </div>

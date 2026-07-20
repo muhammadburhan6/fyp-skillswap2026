@@ -263,7 +263,7 @@ export default function Calendar() {
                 <LearningPath sessionId={s.id} hasExisting={s.has_learning_path} />
               )}
 
-              {s.status === 'completed' && s.learner_id === user.id && (
+              {s.status === 'completed' && (s.learner_id === user.id || s.teacher_id === user.id) && (
                 <SessionReview session={s} onSubmitted={load} />
               )}
             </div>

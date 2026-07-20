@@ -230,7 +230,7 @@ export default function Profile() {
           <div>
             <h2 className="font-display text-xl font-semibold text-foreground">Ratings & satisfaction</h2>
             <p className="mt-1 text-sm text-mutedForeground">
-              Learner star ratings and feedback after completed sessions
+              Star ratings and feedback from session partners
             </p>
           </div>
           {ratings.review_count > 0 ? (
