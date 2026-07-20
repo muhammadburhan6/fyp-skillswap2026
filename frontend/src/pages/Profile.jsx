@@ -228,9 +228,9 @@ export default function Profile() {
       <div className="card mt-8">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl font-semibold text-foreground">Ratings</h2>
+            <h2 className="font-display text-xl font-semibold text-foreground">Ratings & satisfaction</h2>
             <p className="mt-1 text-sm text-mutedForeground">
-              Feedback from learners after completed sessions
+              Learner star ratings and feedback after completed sessions
             </p>
           </div>
           {ratings.review_count > 0 ? (
@@ -242,6 +242,29 @@ export default function Profile() {
             </div>
           ) : null}
         </div>
+
+        {ratings.review_count > 0 && (
+          <div className="mb-4 rounded-xl border border-accent/20 bg-accent/5 px-4 py-3">
+            <p className="text-xs font-mono uppercase tracking-widest text-mutedForeground">User satisfaction</p>
+            <p className="mt-1 text-sm text-foreground">
+              Average learner satisfaction:{' '}
+              <span className="font-medium text-accent">
+                {Number(ratings.average_rating) >= 4.5
+                  ? 'Very satisfied'
+                  : Number(ratings.average_rating) >= 3.5
+                    ? 'Satisfied'
+                    : Number(ratings.average_rating) >= 2.5
+                      ? 'Neutral'
+                      : Number(ratings.average_rating) >= 1.5
+                        ? 'Dissatisfied'
+                        : 'Very dissatisfied'}
+              </span>
+              <span className="text-mutedForeground">
+                {' '}· based on {ratings.review_count} rating{ratings.review_count === 1 ? '' : 's'}
+              </span>
+            </p>
+          </div>
+        )}
 
         {ratings.reviews.length === 0 ? (
           <p className="text-sm text-mutedForeground">No reviews yet — complete teaching sessions to earn ratings.</p>
@@ -256,6 +279,9 @@ export default function Profile() {
                   </p>
                   <span className="text-accent">{'★'.repeat(r.rating)}{'☆'.repeat(5 - r.rating)}</span>
                 </div>
+                <p className="mt-0.5 text-xs text-mutedForeground">
+                  {['', 'Very dissatisfied', 'Dissatisfied', 'Neutral', 'Satisfied', 'Very satisfied'][r.rating] || 'Rated'}
+                </p>
                 {r.comment ? (
                   <p className="mt-1 text-sm text-mutedForeground">{r.comment}</p>
                 ) : null}
