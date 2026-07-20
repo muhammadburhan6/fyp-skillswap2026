@@ -19,7 +19,33 @@ function initials(name = '') {
   return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
 }
 
+function parsePayload(n) {
+  if (!n?.payload) return {}
+  if (typeof n.payload === 'object') return n.payload
+  try {
+    return JSON.parse(n.payload)
+  } catch {
+    return {}
+  }
+}
+
 function notificationLabel(n) {
+  const p = parsePayload(n)
+  if (n.type === 'message') {
+    return p.from_name ? `Message from ${p.from_name}` : 'New message'
+  }
+  if (n.type === 'paid_session_booked') {
+    const who = p.learner_name ? ` by ${p.learner_name}` : ''
+    const skill = p.skill ? ` · ${p.skill}` : ''
+    const amt = typeof p.paid_usd === 'number' ? ` · $${p.paid_usd.toFixed(2)}` : ''
+    return `Paid session booked${who}${skill}${amt}`
+  }
+  if (n.type === 'paid_session_confirmed') {
+    const who = p.teacher_name ? ` with ${p.teacher_name}` : ''
+    const skill = p.skill ? ` · ${p.skill}` : ''
+    const amt = typeof p.paid_usd === 'number' ? ` · $${p.paid_usd.toFixed(2)}` : ''
+    return `Paid session confirmed${who}${skill}${amt}`
+  }
   const map = {
     match_request: 'New match request',
     match_accepted: 'Your match was accepted',
@@ -30,10 +56,7 @@ function notificationLabel(n) {
     session_completed: 'A session was completed',
     session_reminder: 'Upcoming session reminder',
     material_published: 'New teaching material available',
-    paid_session_booked: 'New paid session booked',
-    paid_session_confirmed: 'Paid session confirmed',
     new_review: 'Someone left you a review',
-    message: 'New message',
   }
   return map[n.type] || n.type || 'Notification'
 }

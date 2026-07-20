@@ -336,14 +336,18 @@ def stripe_webhook():
                 notify(db, teacher.id, "paid_session_booked", {
                     "session_id": paid_session.id,
                     "learner_name": learner.name if learner else "",
+                    "learner_id": learner.id if learner else None,
                     "skill": skill_name,
                     "amount_usd": record.teacher_earnings_cents / 100,
+                    "paid_usd": record.amount_cents / 100,
                 })
             if learner:
                 notify(db, learner.id, "paid_session_confirmed", {
                     "session_id": paid_session.id,
                     "teacher_name": teacher.name if teacher else "",
+                    "teacher_id": teacher.id if teacher else None,
                     "skill": skill_name,
+                    "paid_usd": record.amount_cents / 100,
                 })
 
             db.commit()

@@ -90,6 +90,8 @@ def send_message(user, conv_id):
 
     db = SessionLocal()
     try:
+        from services.notification_service import notify
+
         msg = Message(
             conversation_id=conv_id,
             sender_id=user.id,
@@ -102,6 +104,15 @@ def send_message(user, conv_id):
         conv = db.query(Conversation).get(conv_id)
         if conv:
             conv.last_message_at = datetime.now(timezone.utc)
+            preview = content or (attachment_name or "sent an attachment")
+            for participant in conv.participants:
+                if participant.id != user.id:
+                    notify(db, participant.id, "message", {
+                        "conversation_id": conv_id,
+                        "from_user_id": user.id,
+                        "from_name": user.name or "Someone",
+                        "preview": preview,
+                    })
         db.commit()
         return jsonify({"message": _message_dict(msg)}), 201
     finally:
