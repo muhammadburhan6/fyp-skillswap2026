@@ -4,7 +4,5 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
-# Leave startCommand unset so the Dockerfile CMD is used ($PORT expands correctly).
-healthcheckPath = "/api/health"
-healthcheckTimeout = 300
+# No healthcheck — previous Railway healthchecks were failing cold starts.
 restartPolicyType = "ON_FAILURE"
