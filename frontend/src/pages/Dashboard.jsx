@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import AppShell from '../components/layout/AppShell'
 import DashboardSpPopups from '../components/DashboardSpPopups'
 import RecommendedMatches from '../components/RecommendedMatches'
+import SessionReview from '../components/SessionReview'
 import SkillDemandPanel from '../components/SkillDemandPanel'
 import api from '../lib/api'
 import { formatLocalDateTime, parseApiDate } from '../lib/dateTime'
@@ -38,9 +39,15 @@ export default function Dashboard() {
   const [viewDate, setViewDate] = useState(() => new Date())
   const [selectedDate, setSelectedDate] = useState(() => new Date())
 
-  useEffect(() => {
+  const load = () => {
     api.dashboard().then(setData)
+  }
+
+  useEffect(() => {
+    load()
   }, [])
+
+  const userId = data?.user?.id
 
   const calendarDays = useMemo(
     () => buildCalendarDays(viewDate.getFullYear(), viewDate.getMonth()),
@@ -48,7 +55,6 @@ export default function Dashboard() {
   )
   const monthLabel = viewDate.toLocaleString('default', { month: 'long', year: 'numeric' })
   const hasMatches = data?.progress?.length > 0
-  const hasLessonsToday = data?.has_lessons_today
 
   const sessionDates = useMemo(() => {
     const set = new Set()
@@ -87,16 +93,31 @@ export default function Dashboard() {
           <section className="card">
             <div className="mb-6 flex items-center justify-between border-b border-white/[0.06] pb-4">
               <h2 className="font-display text-xl font-semibold text-foreground">Activity</h2>
-              <span className="badge">Today</span>
+              <span className="badge">Sessions</span>
             </div>
-            {hasLessonsToday ? (
+            {data.today_sessions?.length > 0 ? (
               <div className="space-y-3">
                 {data.today_sessions.map((session) => (
                   <div
                     key={session.id}
                     className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-4 py-3 text-sm text-foreground"
                   >
-                    Session scheduled · {formatLocalDateTime(session.scheduled_at)}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <p>
+                        {session.skill ? `${session.skill} · ` : ''}
+                        {formatLocalDateTime(session.scheduled_at)}
+                      </p>
+                      <span
+                        className={`badge ${
+                          session.status === 'completed' ? 'border-accent/40 text-accent' : ''
+                        }`}
+                      >
+                        {session.status}
+                      </span>
+                    </div>
+                    {session.status === 'completed' && session.learner_id === userId && (
+                      <SessionReview session={session} onSubmitted={load} />
+                    )}
                   </div>
                 ))}
               </div>
@@ -219,7 +240,22 @@ export default function Dashboard() {
                     key={session.id}
                     className="rounded-lg border border-white/[0.06] bg-white/[0.03] px-3 py-2 text-xs text-foreground"
                   >
-                    {formatLocalDateTime(session.scheduled_at)}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span>{formatLocalDateTime(session.scheduled_at)}</span>
+                      <span
+                        className={`font-mono uppercase tracking-wider ${
+                          session.status === 'completed' ? 'text-accent' : 'text-mutedForeground'
+                        }`}
+                      >
+                        {session.status}
+                      </span>
+                    </div>
+                    {session.skill ? (
+                      <p className="mt-1 text-mutedForeground">{session.skill}</p>
+                    ) : null}
+                    {session.status === 'completed' && session.learner_id === userId && (
+                      <SessionReview session={session} onSubmitted={load} />
+                    )}
                   </div>
                 ))}
               </div>
