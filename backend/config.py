@@ -85,8 +85,6 @@ class Config:
     SMTP_USER = os.getenv("SMTP_USER", "")
     SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
     SMTP_FROM = os.getenv("SMTP_FROM", "SkillSwap <no-reply@skillswap.io>")
-    # Brevo REST API key (xkeysib-...). Prefer this on Railway — SMTP ports often time out.
-    BREVO_API_KEY = os.getenv("BREVO_API_KEY", "").strip()
     FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
 
     # Firebase project ID used to verify Google Sign-In ID tokens from the client.
@@ -94,8 +92,6 @@ class Config:
 
     @classmethod
     def email_enabled(cls) -> bool:
-        if cls.BREVO_API_KEY:
-            return True
         return bool(cls.SMTP_HOST and cls.SMTP_USER and cls.SMTP_PASSWORD)
 
     DAILY_HEART_TOKENS = 100

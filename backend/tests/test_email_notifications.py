@@ -59,11 +59,11 @@ def test_register_sends_welcome_email(client):
         _cleanup(addr)
 
 
-def test_match_request_sends_email_to_target(client, make_user):
+def test_match_request_is_in_app_only_no_email(client, make_user):
     requester = make_user(_email("req"))
     target_addr = _email("target")
     target = make_user(target_addr)
-    _cleanup(target_addr)  # drop the welcome email if any
+    _cleanup(target_addr)
 
     try:
         resp = client.post(
@@ -72,14 +72,14 @@ def test_match_request_sends_email_to_target(client, make_user):
             headers=auth_header(requester["token"]),
         )
         assert resp.status_code in (200, 201)
-        files = _outbox_files_for(target_addr)
-        assert any("exchange-request" in p.name or "exchange request" in p.read_text(encoding="utf-8").lower() for p in files)
+        notifs = client.get("/api/notifications/", headers=auth_header(target["token"])).get_json()["notifications"]
+        assert any(n["type"] == "match_request" for n in notifs)
+        assert _outbox_files_for(target_addr) == []
     finally:
         _cleanup(target_addr)
-        _cleanup(requester["email"] if isinstance(requester, dict) and "email" in requester else "")
 
 
-def test_admin_distribute_creates_notification_and_email(client, make_user):
+def test_admin_distribute_creates_notification_without_email(client, make_user):
     admin = make_user(_email("admin"), role="admin")
     user_addr = _email("bonus")
     user = make_user(user_addr)
@@ -95,14 +95,12 @@ def test_admin_distribute_creates_notification_and_email(client, make_user):
 
         notifs = client.get("/api/notifications/", headers=auth_header(user["token"])).get_json()["notifications"]
         assert any(n["type"] == "points_granted" for n in notifs)
-
-        files = _outbox_files_for(user_addr)
-        assert any("bonus" in p.read_text(encoding="utf-8").lower() for p in files)
+        assert _outbox_files_for(user_addr) == []
     finally:
         _cleanup(user_addr)
-        _cleanup(admin["email"] if isinstance(admin, dict) and "email" in admin else "")
 
 
-def test_chat_messages_are_not_emailable():
-    assert "new_message" not in EMAILABLE_TYPES
-    assert "message_received" not in EMAILABLE_TYPES
+def test_notification_emails_disabled():
+    assert EMAILABLE_TYPES == {}
+    assert "message" not in EMAILABLE_TYPES
+    assert "match_request" not in EMAILABLE_TYPES
