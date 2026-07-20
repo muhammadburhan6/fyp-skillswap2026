@@ -1,0 +1,11 @@
+# Used when Railway Root Directory is empty (monorepo root).
+# Forces Docker/Python instead of Railpack detecting Node from package.json.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:$PORT app:app"
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+restartPolicyType = "ON_FAILURE"
