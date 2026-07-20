@@ -33,6 +33,7 @@ function notificationLabel(n) {
     paid_session_booked: 'New paid session booked',
     paid_session_confirmed: 'Paid session confirmed',
     new_review: 'Someone left you a review',
+    message: 'New message',
   }
   return map[n.type] || n.type || 'Notification'
 }
