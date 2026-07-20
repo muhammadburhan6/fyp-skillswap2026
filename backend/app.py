@@ -83,8 +83,9 @@ def create_app(config_class: type = Config) -> Flask:
     try:
         if config_class.SQLALCHEMY_DATABASE_URI.startswith("mysql"):
             ensure_mysql_database()
+        # Schema only here — bulk seed runs in the background so gunicorn can
+        # bind and pass Railway healthchecks quickly on cold starts.
         init_db()
-        seed_database()
     except Exception as exc:
         _print_mysql_help(exc)
         raise SystemExit(1) from exc
@@ -140,6 +141,18 @@ def create_app(config_class: type = Config) -> Flask:
 
     socketio.init_app(app)
     register_socket_events()
+
+    def _seed_in_background():
+        try:
+            print("[SkillSwap] Background seed starting…", flush=True)
+            seed_database()
+            print("[SkillSwap] Background seed finished.", flush=True)
+        except Exception as seed_exc:
+            print(f"[SkillSwap] Background seed failed: {seed_exc}", flush=True)
+
+    import threading
+    threading.Thread(target=_seed_in_background, name="seed-db", daemon=True).start()
+
     return app
 
 
