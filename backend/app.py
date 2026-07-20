@@ -232,9 +232,17 @@ def register_socket_events():
             conv = db.query(Conversation).get(conv_id)
             if conv:
                 conv.last_message_at = datetime.now(timezone.utc)
+                sender = db.get(User, sender_id)
+                sender_name = sender.name if sender else "Someone"
+                preview = content or (attachment_name or "sent an attachment")
                 for participant in conv.participants:
                     if participant.id != sender_id:
-                        notify(db, participant.id, "message", {"conversation_id": conv_id, "from_user_id": sender_id})
+                        notify(db, participant.id, "message", {
+                            "conversation_id": conv_id,
+                            "from_user_id": sender_id,
+                            "from_name": sender_name,
+                            "preview": preview,
+                        })
             db.commit()
 
             payload = {

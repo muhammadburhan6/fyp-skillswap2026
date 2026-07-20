@@ -95,17 +95,77 @@ def _run_smtp(message: EmailMessage) -> None:
         _smtp_send_message(message)
 
 
+def _parse_from_address(raw: str) -> tuple[str, str]:
+    """Return (name, email) from 'Name <email@x.com>' or bare email."""
+    raw = (raw or "").strip()
+    match = re.match(r"^(.+?)\s*<([^>]+)>$", raw)
+    if match:
+        return match.group(1).strip().strip('"'), match.group(2).strip()
+    if "@" in raw:
+        return "SkillSwap", raw
+    return "SkillSwap", "no-reply@skillswap.io"
+
+
+def _send_via_brevo_api(to_address: str, subject: str, body: str, html: str | None = None) -> bool:
+    """Send via Brevo HTTPS API (works on Railway where SMTP often times out)."""
+    import requests
+
+    sender_name, sender_email = _parse_from_address(Config.SMTP_FROM)
+    payload = {
+        "sender": {"name": sender_name, "email": sender_email},
+        "to": [{"email": to_address}],
+        "subject": subject,
+        "textContent": body,
+    }
+    if html:
+        payload["htmlContent"] = html
+
+    try:
+        resp = requests.post(
+            "https://api.brevo.com/v3/smtp/email",
+            headers={
+                "accept": "application/json",
+                "api-key": Config.BREVO_API_KEY,
+                "content-type": "application/json",
+            },
+            json=payload,
+            timeout=20,
+        )
+        if resp.status_code in (200, 201):
+            print(f"[email] OK — Brevo API delivered to {to_address!r}", flush=True)
+            return True
+        print(
+            f"[email] Brevo API failed ({resp.status_code}): {resp.text[:300]}",
+            flush=True,
+        )
+        return False
+    except Exception as exc:
+        print(f"[email] Brevo API error: {type(exc).__name__}: {exc}", flush=True)
+        logger.exception("Brevo API send failed to %s", to_address)
+        return False
+
+
 def send_email(to_address: str, subject: str, body: str, html: str | None = None) -> bool:
-    """Send a plain-text (optionally HTML) email. Returns True on SMTP success."""
+    """Send a plain-text (optionally HTML) email. Returns True on success."""
     if not Config.email_enabled():
         print(
-            f"[email] SMTP not configured (host={Config.SMTP_HOST!r}, "
+            f"[email] SMTP/Brevo not configured (host={Config.SMTP_HOST!r}, "
+            f"brevo={bool(Config.BREVO_API_KEY)}, "
             f"user set={bool(Config.SMTP_USER)}, pass set={bool(Config.SMTP_PASSWORD)}) "
             f"-> writing to outbox for {to_address!r}",
             flush=True,
         )
         _write_outbox(to_address, subject, body)
         return False
+
+    # Prefer Brevo HTTPS on cloud hosts (Railway blocks / times out SMTP often).
+    if Config.BREVO_API_KEY:
+        print(f"[email] Sending via Brevo API to {to_address!r} — {subject!r}", flush=True)
+        if _send_via_brevo_api(to_address, subject, body, html):
+            return True
+        if not (Config.SMTP_HOST and Config.SMTP_USER and Config.SMTP_PASSWORD):
+            return False
+        print("[email] Falling back to SMTP…", flush=True)
 
     print(
         f"[email] Sending via {Config.SMTP_HOST}:{Config.SMTP_PORT} "
@@ -162,7 +222,6 @@ def send_welcome(to_address: str, name: str) -> bool:
 
 
 # In-app notification types that also get an email.
-# Chat "message" is deliberately excluded — emailing every DM would be spam.
 EMAILABLE_TYPES = {
     "match_request": "New skill exchange request on SkillSwap",
     "match_accepted": "Your skill exchange request was accepted",
@@ -176,6 +235,7 @@ EMAILABLE_TYPES = {
     "paid_session_booked": "New paid session booked on SkillSwap",
     "paid_session_confirmed": "Your paid SkillSwap session is confirmed",
     "new_review": "You received a new review on SkillSwap",
+    "message": "New message on SkillSwap",
 }
 
 
@@ -189,6 +249,9 @@ def _notification_body(notif_type: str, to_name: str, payload: dict) -> str:
     points = payload.get("amount", "")
     item_title = payload.get("item_title") or "a new material"
     collection_title = payload.get("collection_title") or "their library"
+    preview = (payload.get("preview") or "").strip()
+    if len(preview) > 160:
+        preview = preview[:157] + "..."
 
     lines = {
         "match_request": (
@@ -240,6 +303,11 @@ def _notification_body(notif_type: str, to_name: str, payload: dict) -> str:
             f"{from_name} left you a {rating}-star review"
             f"{f' for {skill}' if skill else ''}. "
             "Open your profile to read the feedback."
+        ),
+        "message": (
+            f"{from_name} sent you a message on SkillSwap"
+            + (f':\n\n"{preview}"' if preview else ".")
+            + "\n\nOpen Messenger to reply."
         ),
     }
 
