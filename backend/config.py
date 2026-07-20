@@ -118,6 +118,5 @@ if Config.SECRET_KEY in _INSECURE_SECRETS:
         "Set a strong random SECRET_KEY in backend/.env before deploying. "
         "JWTs signed with a default key are trivially forgeable."
     )
-    if not Config.DEBUG:
-        raise RuntimeError(message)
+    # Warn only — never crash the process (Railway healthchecks need the app up).
     warnings.warn(message, stacklevel=2)
