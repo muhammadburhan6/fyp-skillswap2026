@@ -171,10 +171,14 @@ export default function Discover() {
 
   const getPriceForMatch = (match) => {
     const teacherId = match.user.id
-    const skill = match.skill_offered
+    const skill = (match.skill_offered || '').trim()
     const teacherPrices = teacherPricing[teacherId] || []
-    return teacherPrices.find((p) => p.skill === skill && p.is_active) || null
+    return teacherPrices.find(
+      (p) => p.is_active && (p.skill || '').trim().toLowerCase() === skill.toLowerCase()
+    ) || null
   }
+
+  const paidMatchCount = matches.filter((m) => getPriceForMatch(m)).length
 
   const sendRequest = async (userId) => {
     try {
@@ -217,6 +221,13 @@ export default function Discover() {
         />
         {feedback && <p className="text-sm text-accent">{feedback}</p>}
       </div>
+
+      {matches.length > 0 && paidMatchCount === 0 && (
+        <p className="mb-4 rounded-xl border border-emerald-500/20 bg-emerald-500/5 px-4 py-3 text-sm text-mutedForeground">
+          No paid sessions in these results yet. Teachers can enable Stripe booking from{' '}
+          <a href="/profile" className="text-emerald-300 hover:text-emerald-200">Profile → Teaching Rates</a>.
+        </p>
+      )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {matches.map((m) => {

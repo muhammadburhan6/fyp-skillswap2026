@@ -8,6 +8,7 @@ from database.models import (
     Session,
     Skill,
     SkillModeration,
+    SkillPricing,
     User,
     UserBadge,
 )
@@ -106,6 +107,80 @@ BIOS = [
 ]
 
 BULK_DOMAIN = "@skillswap.dev"
+
+# Demo paid-session rates so Matches shows “Book paid →” out of the box.
+DEMO_PRICING = {
+    "demo@skillswap.io": [("Python", 15.0), ("React", 20.0)],
+    "roman@skillswap.io": [("Video Editing", 25.0)],
+    "arunima@skillswap.io": [("Photography", 18.0)],
+}
+
+
+def _upsert_pricing(db, user_id: int, skill_id: int, price_usd: float, now):
+    existing = (
+        db.query(SkillPricing)
+        .filter_by(user_id=user_id, skill_id=skill_id)
+        .first()
+    )
+    if existing:
+        existing.price_usd = round(price_usd, 2)
+        existing.is_active = True
+        existing.updated_at = now
+        return existing
+    row = SkillPricing(
+        user_id=user_id,
+        skill_id=skill_id,
+        price_usd=round(price_usd, 2),
+        is_active=True,
+    )
+    db.add(row)
+    return row
+
+
+def seed_pricing(db):
+    """Ensure demo teachers (and a slice of bulk users) have active Stripe rates."""
+    import random
+
+    from sqlalchemy.orm import joinedload
+
+    now = datetime.now(timezone.utc)
+    skills_by_name = {s.name: s for s in db.query(Skill).all()}
+
+    for email, rates in DEMO_PRICING.items():
+        user = (
+            db.query(User)
+            .options(joinedload(User.skills_teach))
+            .filter_by(email=email)
+            .first()
+        )
+        if not user:
+            continue
+        for skill_name, price in rates:
+            skill = skills_by_name.get(skill_name)
+            if not skill:
+                continue
+            _upsert_pricing(db, user.id, skill.id, price, now)
+
+    rng = random.Random(42)
+    bulk_users = (
+        db.query(User)
+        .options(joinedload(User.skills_teach))
+        .filter(User.email.like(f"%{BULK_DOMAIN}"))
+        .limit(60)
+        .all()
+    )
+    for user in bulk_users:
+        if not user.skills_teach:
+            continue
+        skill = user.skills_teach[0]
+        existing = (
+            db.query(SkillPricing)
+            .filter_by(user_id=user.id, skill_id=skill.id, is_active=True)
+            .first()
+        )
+        if existing:
+            continue
+        _upsert_pricing(db, user.id, skill.id, round(rng.uniform(12, 35), 2), now)
 
 
 def seed_bulk(db, target_users: int = 600, seed: int = 42):
@@ -249,9 +324,12 @@ def seed_database():
         target = _bulk_target()
         if db.query(User).count() > 0:
             seed_admin_demo_data(db)
+            seed_pricing(db)
             db.commit()
             if target > 0:
                 seed_bulk(db, target_users=target)
+                seed_pricing(db)
+                db.commit()
             return
 
         skills = {}
@@ -343,8 +421,11 @@ def seed_database():
 
         db.add(PointsTransaction(user_id=demo.id, amount=200, reason="signup_bonus"))
         seed_admin_demo_data(db)
+        seed_pricing(db)
         db.commit()
         if target > 0:
             seed_bulk(db, target_users=target)
+            seed_pricing(db)
+            db.commit()
     finally:
         db.close()
