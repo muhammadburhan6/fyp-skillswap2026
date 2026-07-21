@@ -9,7 +9,14 @@ export default function CollectionDetail({ collection, isOwner, onBack, onChange
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [showForm, setShowForm] = useState(false)
+  const [formDefaultType, setFormDefaultType] = useState('file')
   const [editing, setEditing] = useState(null)
+
+  const openAdd = (type = 'file') => {
+    setEditing(null)
+    setFormDefaultType(type)
+    setShowForm(true)
+  }
 
   const load = () => {
     setLoading(true)
@@ -68,9 +75,14 @@ export default function CollectionDetail({ collection, isOwner, onBack, onChange
           </p>
         </div>
         {isOwner && !showForm && !editing && (
-          <button type="button" onClick={() => setShowForm(true)} className="btn-primary">
-            Add material
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => openAdd('file')} className="btn-primary">
+              Upload attachment
+            </button>
+            <button type="button" onClick={() => openAdd('note')} className="btn-outline px-3 py-2 text-sm">
+              Add note / link
+            </button>
+          </div>
         )}
       </div>
 
@@ -78,7 +90,9 @@ export default function CollectionDetail({ collection, isOwner, onBack, onChange
 
       {showForm && (
         <MaterialForm
+          key={formDefaultType}
           collectionId={collection.id}
+          defaultType={formDefaultType}
           onSaved={refresh}
           onCancel={() => setShowForm(false)}
         />
@@ -107,10 +121,21 @@ export default function CollectionDetail({ collection, isOwner, onBack, onChange
               onToggleVisibility={isOwner ? toggleVisibility : undefined}
             />
           ))}
-          {!items.length && (
-            <p className="text-sm text-mutedForeground">
-              {isOwner ? 'No materials yet — add a note, link, or file.' : 'No published materials yet.'}
-            </p>
+          {!items.length && !showForm && (
+            isOwner ? (
+              <button
+                type="button"
+                onClick={() => openAdd('file')}
+                className="flex w-full flex-col items-center rounded-xl border border-dashed border-white/15 bg-white/[0.03] px-4 py-10 text-center transition hover:border-accent/40 hover:bg-accent/5"
+              >
+                <p className="font-medium text-foreground">Upload your first attachment</p>
+                <p className="mt-1 text-sm text-mutedForeground">
+                  PDF, slides, images, zip — partners can download after you publish
+                </p>
+              </button>
+            ) : (
+              <p className="text-sm text-mutedForeground">No published materials yet.</p>
+            )
           )}
         </div>
       )}
