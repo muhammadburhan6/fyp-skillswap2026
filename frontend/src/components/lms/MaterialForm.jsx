@@ -1,15 +1,42 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import api from '../../lib/api'
 
 const EMPTY = {
   title: '',
-  item_type: 'note',
-  visibility: 'draft',
+  item_type: 'file',
+  visibility: 'published',
   body: '',
   external_url: '',
 }
 
-export default function MaterialForm({ collectionId, initial = null, onSaved, onCancel }) {
+const ACCEPT =
+  '.png,.jpg,.jpeg,.gif,.webp,.pdf,.doc,.docx,.txt,.zip,.rar,.ppt,.pptx,.xls,.xlsx,.mp4,.mp3,.webm,.mov,.m4v'
+
+const TYPE_OPTIONS = [
+  { id: 'file', label: 'Attachment' },
+  { id: 'note', label: 'Note' },
+  { id: 'link', label: 'Link' },
+]
+
+function formatBytes(n) {
+  if (!n && n !== 0) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
+}
+
+function titleFromFile(name = '') {
+  return name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim() || name
+}
+
+export default function MaterialForm({
+  collectionId,
+  initial = null,
+  defaultType = 'file',
+  onSaved,
+  onCancel,
+}) {
+  const fileInputRef = useRef(null)
   const [form, setForm] = useState(() => (
     initial
       ? {
@@ -19,13 +46,35 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
           body: initial.body || '',
           external_url: initial.external_url || '',
         }
-      : { ...EMPTY }
+      : { ...EMPTY, item_type: defaultType || 'file' }
   ))
   const [file, setFile] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }))
+
+  const pickFile = (next) => {
+    if (!next) {
+      setFile(null)
+      return
+    }
+    setFile(next)
+    setForm((prev) => ({
+      ...prev,
+      item_type: 'file',
+      title: prev.title.trim() ? prev.title : titleFromFile(next.name),
+    }))
+    setError('')
+  }
+
+  const onDrop = (e) => {
+    e.preventDefault()
+    setDragOver(false)
+    const dropped = e.dataTransfer.files?.[0]
+    if (dropped) pickFile(dropped)
+  }
 
   const submit = async (e) => {
     e.preventDefault()
@@ -50,7 +99,7 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
       } else {
         if (form.item_type === 'file') {
           if (!file) {
-            setError('Choose a file to upload')
+            setError('Please attach a file (PDF, image, slides, zip, etc.)')
             setSaving(false)
             return
           }
@@ -78,16 +127,80 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
 
       {!initial && (
         <div>
-          <label className="mb-1 block text-xs text-mutedForeground">Type</label>
-          <select
-            className="input-field"
-            value={form.item_type}
-            onChange={(e) => setField('item_type', e.target.value)}
+          <label className="mb-2 block text-xs text-mutedForeground">Type</label>
+          <div className="flex flex-wrap gap-2">
+            {TYPE_OPTIONS.map((t) => (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => {
+                  setField('item_type', t.id)
+                  if (t.id !== 'file') setFile(null)
+                }}
+                className={`rounded-lg px-3 py-2 text-sm transition ${
+                  form.item_type === t.id
+                    ? 'bg-accent/20 text-accent'
+                    : 'border border-white/[0.08] text-mutedForeground hover:bg-white/[0.05] hover:text-foreground'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {!initial && form.item_type === 'file' && (
+        <div>
+          <label className="mb-1 block text-xs text-mutedForeground">Attachment</label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={ACCEPT}
+            className="hidden"
+            onChange={(e) => pickFile(e.target.files?.[0] || null)}
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            onDragOver={(e) => {
+              e.preventDefault()
+              setDragOver(true)
+            }}
+            onDragLeave={() => setDragOver(false)}
+            onDrop={onDrop}
+            className={`flex w-full flex-col items-center justify-center rounded-xl border border-dashed px-4 py-8 text-center transition ${
+              dragOver
+                ? 'border-accent bg-accent/10 text-accent'
+                : 'border-white/15 bg-white/[0.03] text-mutedForeground hover:border-accent/40 hover:bg-accent/5 hover:text-foreground'
+            }`}
           >
-            <option value="note">Note</option>
-            <option value="link">Link</option>
-            <option value="file">File</option>
-          </select>
+            {file ? (
+              <>
+                <p className="font-medium text-foreground">{file.name}</p>
+                <p className="mt-1 text-xs">{formatBytes(file.size)} · click or drop to replace</p>
+              </>
+            ) : (
+              <>
+                <p className="font-medium text-foreground">Drop a file here or click to browse</p>
+                <p className="mt-1 text-xs">
+                  PDF, Word, PowerPoint, images, zip, video — up to 50 MB
+                </p>
+              </>
+            )}
+          </button>
+          {file && (
+            <button
+              type="button"
+              onClick={() => {
+                pickFile(null)
+                if (fileInputRef.current) fileInputRef.current.value = ''
+              }}
+              className="mt-2 text-xs text-red-300 hover:text-red-200"
+            >
+              Remove attachment
+            </button>
+          )}
         </div>
       )}
 
@@ -98,13 +211,15 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
           value={form.title}
           onChange={(e) => setField('title', e.target.value)}
           required
-          placeholder="e.g. Week 1 slides"
+          placeholder={form.item_type === 'file' ? 'e.g. Week 1 slides.pdf' : 'e.g. Week 1 notes'}
         />
       </div>
 
       <div>
         <label className="mb-1 block text-xs text-mutedForeground">
-          {form.item_type === 'note' || initial?.item_type === 'note' ? 'Content' : 'Description (optional)'}
+          {form.item_type === 'note' || initial?.item_type === 'note'
+            ? 'Content'
+            : 'Description (optional)'}
         </label>
         <textarea
           className="input-field min-h-[100px]"
@@ -133,17 +248,6 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
         </div>
       )}
 
-      {!initial && form.item_type === 'file' && (
-        <div>
-          <label className="mb-1 block text-xs text-mutedForeground">File</label>
-          <input
-            type="file"
-            className="block w-full text-sm text-mutedForeground file:mr-3 file:rounded-lg file:border-0 file:bg-accent/20 file:px-3 file:py-2 file:text-sm file:text-accent"
-            onChange={(e) => setFile(e.target.files?.[0] || null)}
-          />
-        </div>
-      )}
-
       <div>
         <label className="mb-1 block text-xs text-mutedForeground">Visibility</label>
         <select
@@ -151,8 +255,8 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
           value={form.visibility}
           onChange={(e) => setField('visibility', e.target.value)}
         >
+          <option value="published">Published (swap partners can open)</option>
           <option value="draft">Draft (only you)</option>
-          <option value="published">Published (swap partners)</option>
         </select>
       </div>
 
@@ -160,7 +264,15 @@ export default function MaterialForm({ collectionId, initial = null, onSaved, on
 
       <div className="flex gap-2">
         <button type="submit" className="btn-primary" disabled={saving}>
-          {saving ? 'Saving…' : initial ? 'Save changes' : 'Add material'}
+          {saving
+            ? form.item_type === 'file' && !initial
+              ? 'Uploading…'
+              : 'Saving…'
+            : initial
+              ? 'Save changes'
+              : form.item_type === 'file'
+                ? 'Upload attachment'
+                : 'Add material'}
         </button>
         {onCancel && (
           <button type="button" onClick={onCancel} className="btn-outline px-4 py-2 text-sm">

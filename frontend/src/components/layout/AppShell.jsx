@@ -76,7 +76,7 @@ const NOTIFICATION_ROUTES = {
   new_review: '/profile',
 }
 
-function NotificationBell({ align = 'right' }) {
+function NotificationBell() {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState([])
   const ref = useRef(null)
@@ -123,26 +123,21 @@ function NotificationBell({ align = 'right' }) {
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
-        className="relative flex h-10 w-full items-center gap-3 rounded-lg border border-white/10 bg-white/[0.05] px-3 transition duration-200 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+        className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-white/10 bg-white/[0.05] transition duration-200 hover:bg-white/[0.08] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         aria-label="Notifications"
       >
-        <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
+        <svg className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
         </svg>
-        <span className="flex-1 text-left text-sm">Notifications</span>
         {unread > 0 && (
-          <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-accent px-1 font-mono text-[10px] text-white">
+          <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-accent px-1 font-mono text-[9px] text-white shadow-accent-glow">
             {unread > 9 ? '9+' : unread}
           </span>
         )}
       </button>
 
       {open && (
-        <div
-          className={`absolute z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/[0.06] bg-backgroundElevated shadow-card-hover backdrop-blur-xl ${
-            align === 'left' ? 'left-0' : 'right-0'
-          } top-full`}
-        >
+        <div className="absolute right-0 top-full z-30 mt-2 w-[min(20rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-white/[0.06] bg-backgroundElevated shadow-card-hover backdrop-blur-xl">
           <div className="flex items-center justify-between border-b border-white/[0.06] px-4 py-3">
             <p className="text-sm font-medium">Notifications</p>
             {unread > 0 && (
@@ -251,70 +246,56 @@ export default function AppShell({ children, title, subtitle }) {
           </Link>
 
           <SidebarNav links={navLinks} pathname={location.pathname} onNavigate={closeSidebar} />
-
-          <div className="mt-auto space-y-2 border-t border-white/[0.06] pt-4">
-            <Link
-              to="/wallet"
-              onClick={closeSidebar}
-              className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2.5 font-mono text-xs text-[#c7cbf5] transition duration-200 hover:bg-accent/20"
-            >
-              <span className="font-semibold">{points} SP</span>
-              <span className="text-mutedForeground">· Wallet</span>
-            </Link>
-
-            <NotificationBell align="left" />
-
-            <Link
-              to="/profile"
-              onClick={closeSidebar}
-              className="flex items-center gap-3 rounded-lg px-3 py-2 transition duration-200 hover:bg-white/[0.05]"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/20 font-mono text-xs text-[#c7cbf5]">
-                {initials(user?.name)}
-              </span>
-              <span className="min-w-0 flex-1 truncate text-sm">{user?.name || 'User'}</span>
-            </Link>
-
-            <Link
-              to="/settings"
-              onClick={closeSidebar}
-              className="nav-link block text-sm"
-            >
-              Settings
-            </Link>
-
-            <button
-              type="button"
-              onClick={() => { closeSidebar(); logout() }}
-              className="nav-link block w-full text-left text-sm"
-            >
-              Logout
-            </button>
-          </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center gap-3 border-b border-white/[0.06] bg-backgroundBase/80 px-4 py-3 backdrop-blur-xl lg:hidden">
+        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/[0.06] bg-backgroundBase/80 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
-            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05]"
+            className="flex h-10 w-10 shrink-0 flex-col items-center justify-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.05] lg:hidden"
             aria-label="Open menu"
           >
             <span className="h-0.5 w-5 bg-foreground" />
             <span className="h-0.5 w-5 bg-foreground" />
             <span className="h-0.5 w-5 bg-foreground" />
           </button>
-          <div className="min-w-0 flex-1">
+
+          <div className="hidden min-w-0 flex-1 lg:block">
             {title && <p className="truncate text-sm font-semibold text-foreground">{title}</p>}
+          </div>
+
+          <div className="flex flex-1 items-center justify-end gap-3 sm:gap-4 lg:flex-none">
+            <Link
+              to="/wallet"
+              className="flex items-center gap-2 rounded-full border border-accent/30 bg-accent/10 px-3 py-2 font-mono text-xs text-[#c7cbf5] transition duration-200 hover:bg-accent/20 sm:px-4"
+            >
+              <span className="font-semibold">{points} SP</span>
+            </Link>
+            <NotificationBell />
+            <div className="group relative">
+              <Link to="/profile" className="flex max-w-[160px] items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition duration-200 hover:bg-white/[0.05] sm:max-w-none sm:gap-3 sm:pr-3">
+                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/20 font-mono text-xs text-[#c7cbf5]">
+                  {initials(user?.name)}
+                </span>
+                <span className="hidden truncate text-sm sm:inline">{user?.name || 'User'}</span>
+              </Link>
+              <div className="invisible absolute right-0 top-full z-20 mt-2 w-40 overflow-hidden rounded-xl border border-white/[0.06] bg-backgroundElevated py-1 opacity-0 shadow-card transition duration-200 group-hover:visible group-hover:opacity-100">
+                <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-white/[0.05]">Profile</Link>
+                <Link to="/settings" className="block px-4 py-2 text-sm hover:bg-white/[0.05]">Settings</Link>
+                <button type="button" onClick={logout} className="block w-full px-4 py-2 text-left text-sm hover:bg-white/[0.05]">
+                  Logout
+                </button>
+              </div>
+            </div>
           </div>
         </header>
 
         <main className="dash-main relative flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
           <div className="page-container">
             {(title || subtitle) && (
-              <div className="mb-8 hidden border-b border-white/[0.06] pb-6 sm:mb-10 lg:block">
+              <div className="mb-8 border-b border-white/[0.06] pb-6 sm:mb-10">
                 {title && <h1 className="page-title">{title}</h1>}
                 {subtitle && <p className="page-subtitle">{subtitle}</p>}
               </div>

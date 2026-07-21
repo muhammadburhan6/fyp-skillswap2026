@@ -1,9 +1,16 @@
 import { useState } from 'react'
 
 function typeLabel(type) {
-  if (type === 'file') return 'File'
+  if (type === 'file') return 'Attachment'
   if (type === 'link') return 'Link'
   return 'Note'
+}
+
+function formatBytes(n) {
+  if (!n && n !== 0) return ''
+  if (n < 1024) return `${n} B`
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
+  return `${(n / (1024 * 1024)).toFixed(1)} MB`
 }
 
 export default function MaterialItemRow({ item, isOwner, onEdit, onDelete, onToggleVisibility }) {
@@ -29,7 +36,10 @@ export default function MaterialItemRow({ item, isOwner, onEdit, onDelete, onTog
           </div>
           <p className="mt-1.5 font-medium text-foreground">{item.title}</p>
           {item.item_type === 'file' && item.file_name && (
-            <p className="mt-0.5 text-xs text-mutedForeground">{item.file_name}</p>
+            <p className="mt-0.5 text-xs text-mutedForeground">
+              {item.file_name}
+              {item.file_size ? ` · ${formatBytes(item.file_size)}` : ''}
+            </p>
           )}
           {item.item_type === 'link' && item.external_url && (
             <a
@@ -64,8 +74,14 @@ export default function MaterialItemRow({ item, isOwner, onEdit, onDelete, onTog
 
         <div className="flex flex-wrap items-center gap-2">
           {item.item_type === 'file' && item.file_url && (
-            <a href={item.file_url} target="_blank" rel="noreferrer" className="btn-outline px-3 py-1.5 text-xs">
-              Open
+            <a
+              href={item.file_url}
+              target="_blank"
+              rel="noreferrer"
+              download={item.file_name || undefined}
+              className="btn-primary px-3 py-1.5 text-xs"
+            >
+              Download
             </a>
           )}
           {item.item_type === 'link' && item.external_url && (
