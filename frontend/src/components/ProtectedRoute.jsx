@@ -32,7 +32,10 @@ export default function ProtectedRoute({ children, adminOnly = false }) {
 
   }
 
-  if (!user) return <Navigate to="/auth" replace />
+  if (!user) {
+    const next = encodeURIComponent(location.pathname + location.search)
+    return <Navigate to={`/auth?next=${next}`} replace />
+  }
 
   if (adminOnly && user.role !== 'admin') return <Navigate to="/dashboard" replace />
 

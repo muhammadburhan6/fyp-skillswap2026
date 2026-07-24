@@ -242,7 +242,7 @@ export default function AppShell({ children, title, subtitle }) {
         <div className="flex flex-1 flex-col overflow-y-auto px-4 py-6">
           <Link to="/dashboard" className="mb-8 flex items-center gap-3 px-2" onClick={closeSidebar}>
             <SkillSwapLogo size="sm" />
-            <span className="text-xl font-semibold tracking-tight">Skill/Swap</span>
+            <span className="text-xl font-semibold tracking-tight">Skillswap</span>
           </Link>
 
           <SidebarNav links={navLinks} pathname={location.pathname} onNavigate={closeSidebar} />

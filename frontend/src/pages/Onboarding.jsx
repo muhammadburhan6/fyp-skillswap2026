@@ -29,7 +29,13 @@ export default function Onboarding() {
         skills_learn: learn.split(',').map((s) => s.trim()).filter(Boolean),
       })
       setUser(user)
-      navigate('/dashboard', { replace: true })
+      const pending = sessionStorage.getItem('skillswap_next')
+      if (pending && pending.startsWith('/') && !pending.startsWith('//')) {
+        sessionStorage.removeItem('skillswap_next')
+        navigate(pending, { replace: true })
+      } else {
+        navigate('/dashboard', { replace: true })
+      }
     } catch (err) {
       setError(err.response?.data?.error || err.message || 'Could not save profile. Try again.')
     } finally {
@@ -43,7 +49,7 @@ export default function Onboarding() {
         <div className="mb-10 text-center">
           <Link to="/" className="inline-flex items-center gap-3">
             <SkillSwapLogo size="sm" />
-            <span className="text-2xl font-semibold tracking-tight">Skill/Swap</span>
+            <span className="text-2xl font-semibold tracking-tight">Skillswap</span>
           </Link>
         </div>
         <form onSubmit={submit} className="card space-y-5 p-8">

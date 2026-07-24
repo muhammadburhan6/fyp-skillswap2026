@@ -13,7 +13,7 @@ export default function ExploreFeatures() {
       <section className="section-wrap py-16 md:py-24 lg:py-28">
         <p className="font-mono text-xs uppercase tracking-widest text-mutedForeground">Platform features</p>
         <h1 className="mt-4 text-4xl font-semibold leading-none tracking-[-0.03em] md:text-6xl lg:text-7xl">
-          <GradientText as="span">Everything Skill/Swap can do for you</GradientText>
+          <GradientText as="span">Everything Skillswap can do for you</GradientText>
         </h1>
         <p className="mt-6 max-w-xl text-lg text-mutedForeground">
           Powerful tools to learn, teach, and grow — all in one platform.

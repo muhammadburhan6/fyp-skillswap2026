@@ -60,7 +60,14 @@ export default function Auth() {
 
   const finish = (user) => {
     if (user.role === 'admin') return navigate('/admin')
-    return navigate(user.onboarding_complete ? '/dashboard' : '/onboarding')
+    const next = params.get('next')
+    const safeNext = next && next.startsWith('/') && !next.startsWith('//') ? next : null
+    if (!user.onboarding_complete) {
+      if (safeNext) sessionStorage.setItem('skillswap_next', safeNext)
+      return navigate('/onboarding')
+    }
+    if (safeNext) return navigate(safeNext)
+    return navigate('/dashboard')
   }
 
   const mapAuthError = (err) => {
@@ -137,7 +144,7 @@ export default function Auth() {
         <div className="mb-10 text-center">
           <Link to="/" className="inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
             <SkillSwapLogo size="sm" />
-            <span className="text-2xl font-semibold tracking-tight">Skill/Swap</span>
+            <span className="text-2xl font-semibold tracking-tight">Skillswap</span>
           </Link>
         </div>
 
@@ -175,7 +182,7 @@ export default function Auth() {
                 ? 'Sign in with your admin credentials to open the control panel.'
                 : isSignup
                   ? 'Enter your details to get started.'
-                  : 'Log in to continue to Skill/Swap.'}
+                  : 'Log in to continue to Skillswap.'}
           </p>
           {isAdminMode && (
             <p className="mt-3 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 font-mono text-xs text-accent-soft">

@@ -50,7 +50,7 @@ export default function ResetPassword() {
         <div className="mb-10 text-center">
           <Link to="/" className="inline-flex items-center gap-3">
             <SkillSwapLogo size="sm" />
-            <span className="text-2xl font-semibold tracking-tight">Skill/Swap</span>
+            <span className="text-2xl font-semibold tracking-tight">Skillswap</span>
           </Link>
         </div>
 

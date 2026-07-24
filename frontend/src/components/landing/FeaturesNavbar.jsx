@@ -10,7 +10,7 @@ export default function FeaturesNavbar() {
       <div className="section-wrap flex items-center justify-between !px-0">
         <Link to="/" className="flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">
           <SkillSwapLogo />
-          <span className="text-xl font-semibold tracking-tight">Skill/Swap</span>
+          <span className="text-xl font-semibold tracking-tight">Skillswap</span>
         </Link>
 
         <div className="flex items-center gap-4">
