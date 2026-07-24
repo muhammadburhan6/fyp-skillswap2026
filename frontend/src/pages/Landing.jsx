@@ -7,8 +7,6 @@ import LandingFooter from '../components/landing/LandingFooter'
 import AnimatedCounter from '../components/landing/AnimatedCounter'
 import TestimonialsCarousel from '../components/landing/TestimonialsCarousel'
 import {
-  LoginModal,
-  SignupModal,
   Toast,
 } from '../components/landing/LandingModals'
 import SpotlightCard from '../components/ui/SpotlightCard'
@@ -78,12 +76,10 @@ export default function Landing() {
   const navigate = useNavigate()
   const user = useAuthStore((s) => s.user)
   const parallax = useParallax(420)
-  const [modal, setModal] = useState(null)
   const [toast, setToast] = useState(null)
 
-  const openLogin = useCallback(() => setModal('login'), [])
-  const openSignup = useCallback(() => setModal('signup'), [])
-  const closeModal = useCallback(() => setModal(null), [])
+  const openLogin = useCallback(() => navigate('/auth'), [navigate])
+  const openSignup = useCallback(() => navigate('/auth?mode=signup'), [navigate])
   const showToast = useCallback((message) => setToast(message), [])
 
   const openCategory = useCallback(
@@ -262,12 +258,6 @@ export default function Landing() {
 
       <LandingFooter onToast={showToast} />
 
-      {modal === 'login' && (
-        <LoginModal onClose={closeModal} onSwitch={() => setModal('signup')} />
-      )}
-      {modal === 'signup' && (
-        <SignupModal onClose={closeModal} onSwitch={() => setModal('login')} />
-      )}
       <Toast message={toast} onDismiss={() => setToast(null)} />
     </div>
   )
