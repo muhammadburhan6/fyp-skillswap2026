@@ -124,7 +124,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="py-8 text-center">
-                <p className="font-display text-xl text-foreground">Ready for your first Skill/Swap session?</p>
+                <p className="font-display text-xl text-foreground">Ready for your first Skillswap session?</p>
                 <p className="mt-2 text-sm text-mutedForeground">
                   Book a session with a match to start earning XP and skill points.
                 </p>

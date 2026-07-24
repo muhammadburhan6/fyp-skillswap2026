@@ -12,7 +12,7 @@ export default function LandingCta() {
         className="card-inverted relative z-10 mx-auto max-w-2xl px-8 py-14 text-center"
       >
         <h2 className="text-3xl font-semibold tracking-tight sm:text-4xl md:text-5xl">
-          Skill/Swap <span className="text-mutedForeground">is out now.</span>
+          Skillswap <span className="text-mutedForeground">is out now.</span>
         </h2>
 
         <div className="mt-10 flex flex-wrap items-center justify-center gap-4">

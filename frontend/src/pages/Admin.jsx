@@ -252,7 +252,7 @@ export default function Admin() {
           <div className="flex items-center gap-3">
             <Link to="/" className="flex items-center gap-2">
               <SkillSwapLogo size="sm" />
-              <span className="font-semibold tracking-tight">Skill/Swap Admin</span>
+              <span className="font-semibold tracking-tight">Skillswap Admin</span>
             </Link>
             {view !== 'home' && (
               <button type="button" onClick={() => setView('home')} className="btn-ghost text-xs">
@@ -277,7 +277,7 @@ export default function Admin() {
         {view === 'home' && (
           <>
             <h1 className="page-title">Welcome back, Admin! 👋</h1>
-            <p className="page-subtitle">Moderate users, resolve disputes, and keep Skill/Swap healthy.</p>
+            <p className="page-subtitle">Moderate users, resolve disputes, and keep Skillswap healthy.</p>
             {stats && (
               <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
                 {[
