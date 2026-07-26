@@ -136,6 +136,7 @@ def rank_with_ai(user, candidates):
         user_payload = {
             "id": str(user.id),
             "name": user.name,
+            "bio": (user.bio or "")[:280],
             "skills_offered": [{"name": s.name, "level": get_proficiency_level(user, True)} for s in user.skills_teach],
             "skills_wanted": [{"name": s.name, "level": get_proficiency_level(user, False)} for s in user.skills_learn]
         }
@@ -144,6 +145,7 @@ def rank_with_ai(user, candidates):
             {
                 "candidate_id": str(c["user"].id),
                 "name": c["user"].name,
+                "bio": (c["user"].bio or "")[:280],
                 "skills_offered": [{"name": s.name, "level": get_proficiency_level(c["user"], True)} for s in c["user"].skills_teach],
                 "skills_wanted": [{"name": s.name, "level": get_proficiency_level(c["user"], False)} for s in c["user"].skills_learn]
             }
@@ -253,6 +255,7 @@ def rank_with_ai(user, candidates):
                 {
                     "user_id": c["user"].id,
                     "name": c["user"].name,
+                    "bio": (c["user"].bio or "")[:280],
                     "teaches": [s.name for s in c["user"].skills_teach],
                     "wants_to_learn": [s.name for s in c["user"].skills_learn],
                     "shared_skills": c["shared_skills"],
@@ -268,7 +271,11 @@ def rank_with_ai(user, candidates):
                 "Only use user_id values from the provided candidates. Give reciprocal swaps the highest scores."
             )
             openai_prompt = json.dumps({
-                "current_user": {"offers": user_offered, "wants_to_learn": user_wanted},
+                "current_user": {
+                    "bio": (user.bio or "")[:280],
+                    "offers": user_offered,
+                    "wants_to_learn": user_wanted,
+                },
                 "candidates": openai_candidates,
             })
 

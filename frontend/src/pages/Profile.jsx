@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import AppShell from '../components/layout/AppShell'
+import Avatar from '../components/ui/Avatar'
 import api from '../lib/api'
 import { useAuthStore } from '../store/useAuthStore'
 
@@ -76,6 +77,24 @@ export default function Profile() {
   const [saved, setSaved] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+  const fileRef = useRef(null)
+
+  const onAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setError('')
+    setAvatarUploading(true)
+    try {
+      const { user: updated } = await api.uploadAvatar(file)
+      setUser(updated)
+    } catch (err) {
+      setError(err.response?.data?.error || err.message || 'Could not upload photo.')
+    } finally {
+      setAvatarUploading(false)
+      if (fileRef.current) fileRef.current.value = ''
+    }
+  }
 
   // Teaching rates state
   const [pricing, setPricing] = useState([])
@@ -107,11 +126,15 @@ export default function Profile() {
   const save = async (e) => {
     e.preventDefault()
     setError('')
+    if (form.bio.trim().length < 10) {
+      setError('Please add a short bio (at least 10 characters) so our AI can match you accurately.')
+      return
+    }
     setLoading(true)
     try {
       const { user: updated } = await api.updateMe({
         name: form.name.trim(),
-        bio: form.bio,
+        bio: form.bio.trim(),
         availability: form.availability,
         skills_teach: form.skills_teach.split(',').map((s) => s.trim()).filter(Boolean),
         skills_learn: form.skills_learn.split(',').map((s) => s.trim()).filter(Boolean),
@@ -173,9 +196,33 @@ export default function Profile() {
         <form onSubmit={save} className="card space-y-6">
           <h2 className="font-display text-xl font-semibold text-foreground">Edit profile</h2>
 
+          <div className="flex items-center gap-4">
+            <Avatar
+              user={user}
+              className="h-16 w-16 shrink-0 rounded-full border border-accent/30 bg-accent/15 font-display text-2xl text-accent"
+            />
+            <div>
+              <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/gif,image/webp" onChange={onAvatarChange} className="hidden" />
+              <button
+                type="button"
+                onClick={() => fileRef.current?.click()}
+                disabled={avatarUploading}
+                className="btn-outline px-4 py-2 text-xs disabled:opacity-60"
+              >
+                {avatarUploading ? 'Uploading…' : user?.avatar_url ? 'Change photo' : 'Upload photo'}
+              </button>
+              <p className="mt-1.5 text-xs text-mutedForeground">PNG, JPG, GIF or WebP — shown to others on your matches.</p>
+            </div>
+          </div>
+
           {[
             { id: 'name', label: 'Name', el: <input className="input-field" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required /> },
-            { id: 'bio', label: 'Bio', el: <textarea className="input-field" rows={3} placeholder="Tell others about yourself" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} /> },
+            { id: 'bio', label: 'Bio (required)', el: (
+              <>
+                <textarea className="input-field" rows={3} required minLength={10} placeholder="Tell others about yourself, your interests and goals" value={form.bio} onChange={(e) => setForm({ ...form, bio: e.target.value })} />
+                <p className="mt-1.5 text-xs text-mutedForeground">Required — our AI reads your bio to detect your interests and find better matches.</p>
+              </>
+            ) },
             { id: 'teach', label: 'Skills I teach', el: <input className="input-field" placeholder="e.g. Python, React" value={form.skills_teach} onChange={(e) => setForm({ ...form, skills_teach: e.target.value })} /> },
             { id: 'learn', label: 'Skills I want to learn', el: <input className="input-field" placeholder="e.g. UI Design, Spanish" value={form.skills_learn} onChange={(e) => setForm({ ...form, skills_learn: e.target.value })} /> },
           ].map(({ id, label, el }) => (
@@ -205,9 +252,10 @@ export default function Profile() {
 
         <div className="card">
           <h2 className="font-display text-xl font-semibold text-foreground">Public preview</h2>
-          <div className="mt-6 flex h-16 w-16 items-center justify-center rounded-full border border-accent/30 bg-accent/15 font-display text-2xl text-accent">
-            {user?.name?.[0]}
-          </div>
+          <Avatar
+            user={user}
+            className="mt-6 h-16 w-16 rounded-full border border-accent/30 bg-accent/15 font-display text-2xl text-accent"
+          />
           <p className="mt-4 font-display text-2xl text-foreground">{user?.name}</p>
           <p className="mt-2 text-sm text-mutedForeground">{user?.bio || 'No bio yet'}</p>
           <p className="mt-6 text-sm text-foreground">

@@ -65,6 +65,11 @@ def call_gemini(
     if "2.5" in model:
         # Disable thinking on 2.5 models so the token budget goes to the reply.
         generation_config["thinkingConfig"] = {"thinkingBudget": 0}
+    else:
+        # Newer flash models (gemini-flash-latest / 3.x) think before answering
+        # and don't accept thinkingBudget:0, so give the reply generous headroom
+        # or the JSON output gets truncated mid-response by the thinking spend.
+        generation_config["maxOutputTokens"] = max(max_tokens, 6000)
 
     payload = {
         "system_instruction": {"parts": [{"text": system}]},

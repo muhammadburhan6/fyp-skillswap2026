@@ -33,6 +33,14 @@ export default {
   resetPassword: (token, password) => api.post('/auth/reset-password', { token, password }).then((r) => r.data),
   getMe: () => api.get('/users/me').then((r) => r.data),
   updateMe: (data) => api.put('/users/me', data).then((r) => r.data),
+  uploadAvatar: (file) => {
+    const form = new FormData()
+    form.append('file', file)
+    return api.post('/users/me/avatar', form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+      timeout: 60000,
+    }).then((r) => r.data)
+  },
   onboarding: (data) => api.post('/users/onboarding', data).then((r) => r.data),
   dashboard: () => api.get('/dashboard').then((r) => r.data),
   discoverMatches: (skill) => api.get('/matches/discover', { params: skill ? { skill } : {} }).then((r) => r.data),

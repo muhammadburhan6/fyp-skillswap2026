@@ -29,6 +29,14 @@ export default function Auth() {
     setParams(signup ? { mode: 'signup' } : {})
   }
 
+  const goAdmin = () => {
+    setError('')
+    setForgotMode(false)
+    setForgotMessage('')
+    setForgotLink('')
+    setParams({ mode: 'admin' })
+  }
+
   const openForgot = () => {
     setError('')
     setForgotMessage('')
@@ -140,6 +148,29 @@ export default function Auth() {
 
   return (
     <div className="auth-shell relative flex min-h-screen items-center justify-center px-4 py-12">
+      <div className="absolute right-4 top-4 z-20 sm:right-6 sm:top-6">
+        {isAdminMode ? (
+          <button
+            type="button"
+            onClick={() => setMode(false)}
+            className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.05] px-3 py-2 text-xs font-medium text-mutedForeground transition duration-200 hover:bg-white/[0.08] hover:text-foreground"
+          >
+            ← User login
+          </button>
+        ) : (
+          <button
+            type="button"
+            onClick={goAdmin}
+            className="flex items-center gap-2 rounded-lg border border-accent/30 bg-accent/10 px-3 py-2 text-xs font-medium text-accent transition duration-200 hover:bg-accent/20"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.5" viewBox="0 0 24 24" aria-hidden="true">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+            </svg>
+            Admin login
+          </button>
+        )}
+      </div>
+
       <div className="relative z-10 w-full max-w-md">
         <div className="mb-10 text-center">
           <Link to="/" className="inline-flex items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent">

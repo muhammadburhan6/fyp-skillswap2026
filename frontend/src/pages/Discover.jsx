@@ -1,12 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppShell from '../components/layout/AppShell'
+import Avatar from '../components/ui/Avatar'
 import api from '../lib/api'
 import { localInputToISO } from '../lib/dateTime'
-
-function initials(name = '') {
-  return name.split(' ').map((p) => p[0]).join('').slice(0, 2).toUpperCase()
-}
 
 function IncomingRequests({ requests, onAccept, onDecline }) {
   if (!requests.length) return null
@@ -20,9 +17,10 @@ function IncomingRequests({ requests, onAccept, onDecline }) {
       <div className="divide-y divide-white/[0.06]">
         {requests.map((r) => (
           <div key={r.match_id} className="flex flex-wrap items-center gap-4 py-4">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 font-mono text-xs text-accent">
-              {initials(r.user.name)}
-            </span>
+            <Avatar
+              user={r.user}
+              className="h-11 w-11 shrink-0 rounded-full border border-accent/30 bg-accent/15 font-mono text-xs text-accent"
+            />
             <div className="min-w-0 flex-1">
               <p className="font-medium text-foreground">{r.user.name}</p>
               <p className="mt-0.5 truncate font-mono text-xs text-mutedForeground">
@@ -235,14 +233,19 @@ export default function Discover() {
           return (
             <div key={m.user.id} className="card flex flex-col">
               <div className="flex items-start gap-4">
-                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/15 font-display text-lg text-accent">
-                  {m.user.name?.[0]}
-                </div>
+                <Avatar
+                  user={m.user}
+                  className="h-12 w-12 shrink-0 rounded-full border border-accent/30 bg-accent/15 font-display text-lg text-accent"
+                />
                 <div className="min-w-0 flex-1">
                   <h3 className="font-display text-xl font-semibold text-foreground">{m.user.name}</h3>
                   <p className="mt-1 text-sm text-mutedForeground">Teaches: {m.user.skills_teach?.join(', ')}</p>
                 </div>
               </div>
+
+              {m.user.bio && (
+                <p className="mt-3 line-clamp-2 text-sm text-mutedForeground">{m.user.bio}</p>
+              )}
 
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <p className="text-sm text-foreground">

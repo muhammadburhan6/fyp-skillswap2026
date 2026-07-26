@@ -6,6 +6,8 @@ import api from '../lib/api'
 
 import { useAuthStore } from '../store/useAuthStore'
 
+import { getStoredTheme, applyTheme } from '../lib/theme'
+
 
 
 export default function Settings() {
@@ -27,6 +29,10 @@ export default function Settings() {
   const [error, setError] = useState('')
 
   const [loading, setLoading] = useState(false)
+
+  const [theme, setTheme] = useState(getStoredTheme())
+
+  const chooseTheme = (t) => setTheme(applyTheme(t))
 
 
 
@@ -133,6 +139,46 @@ export default function Settings() {
           <p className="mt-8 font-mono text-xs uppercase tracking-widest text-mutedForeground">Skill points</p>
 
           <p className="mt-1 font-display text-4xl font-bold text-accent">{user?.points_balance ?? 0} SP</p>
+
+        </div>
+
+        <div className="card lg:col-span-2">
+
+          <h2 className="font-display text-xl font-semibold text-foreground">Appearance</h2>
+
+          <p className="mt-1 text-sm text-mutedForeground">Choose how Skillswap looks on this device.</p>
+
+          <div className="mt-6 inline-flex rounded-lg border border-white/10 bg-white/[0.03] p-1">
+
+            <button
+
+              type="button"
+
+              onClick={() => chooseTheme('dark')}
+
+              className={`rounded-md px-5 py-2 text-sm font-medium transition duration-200 ${theme === 'dark' ? 'bg-accent text-white shadow-accent-glow' : 'text-mutedForeground hover:text-foreground'}`}
+
+            >
+
+              🌙 Dark
+
+            </button>
+
+            <button
+
+              type="button"
+
+              onClick={() => chooseTheme('light')}
+
+              className={`rounded-md px-5 py-2 text-sm font-medium transition duration-200 ${theme === 'light' ? 'bg-accent text-white shadow-accent-glow' : 'text-mutedForeground hover:text-foreground'}`}
+
+            >
+
+              ☀️ Light
+
+            </button>
+
+          </div>
 
         </div>
 

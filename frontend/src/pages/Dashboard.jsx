@@ -2,9 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppShell from '../components/layout/AppShell'
 import DashboardSpPopups from '../components/DashboardSpPopups'
-import RecommendedMatches from '../components/RecommendedMatches'
 import SessionReview from '../components/SessionReview'
-import SkillDemandPanel from '../components/SkillDemandPanel'
 import api from '../lib/api'
 import { formatLocalDateTime, parseApiDate } from '../lib/dateTime'
 
@@ -158,8 +156,6 @@ export default function Dashboard() {
             </div>
           </section>
 
-          <RecommendedMatches />
-          <SkillDemandPanel />
         </div>
 
         <section className="card flex w-full flex-col overflow-hidden">

@@ -19,11 +19,15 @@ export default function Onboarding() {
   const submit = async (e) => {
     e.preventDefault()
     setError('')
+    if (bio.trim().length < 10) {
+      setError('Please add a short bio (at least 10 characters) so our AI can match you accurately.')
+      return
+    }
     setLoading(true)
     try {
       const { user } = await api.onboarding({
         display_name: name.trim(),
-        bio,
+        bio: bio.trim(),
         availability,
         skills_teach: teach.split(',').map((s) => s.trim()).filter(Boolean),
         skills_learn: learn.split(',').map((s) => s.trim()).filter(Boolean),
@@ -56,7 +60,10 @@ export default function Onboarding() {
           <h1 className="text-3xl font-semibold tracking-tight">Set up your profile</h1>
           <p className="text-mutedForeground">Tell us about your skills to get matched. You only need to do this once.</p>
           <input className="input-field" placeholder="Your name" value={name} onChange={(e) => setName(e.target.value)} required />
-          <textarea className="input-field" placeholder="Short bio" value={bio} onChange={(e) => setBio(e.target.value)} rows={2} />
+          <div>
+            <textarea className="input-field" placeholder="Short bio — your interests and goals (required)" value={bio} onChange={(e) => setBio(e.target.value)} rows={2} required minLength={10} />
+            <p className="mt-1.5 text-xs text-mutedForeground">Required — our AI reads your bio to detect your interests and find better matches.</p>
+          </div>
           <input className="input-field" placeholder="Skills I can teach (comma separated)" value={teach} onChange={(e) => setTeach(e.target.value)} />
           <input className="input-field" placeholder="Skills I want to learn (comma separated)" value={learn} onChange={(e) => setLearn(e.target.value)} />
           <select className="input-field" value={availability} onChange={(e) => setAvailability(e.target.value)}>

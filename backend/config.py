@@ -5,7 +5,10 @@ from urllib.parse import quote_plus
 
 from dotenv import load_dotenv
 
-load_dotenv()
+# override=True so backend/.env is the source of truth for keys — otherwise a
+# stale ANTHROPIC_API_KEY in the OS environment shadows the .env value and every
+# AI call wastes a failing request before falling through to the working Gemini.
+load_dotenv(override=True)
 
 BASE_DIR = Path(__file__).resolve().parent
 

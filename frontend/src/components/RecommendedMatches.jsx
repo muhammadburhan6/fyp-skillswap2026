@@ -30,7 +30,7 @@ function ModeBadge({ mode }) {
 
 
 
-export default function RecommendedMatches() {
+export default function RecommendedMatches({ showSeeAll = true }) {
 
   const [recs, setRecs] = useState([])
 
@@ -80,7 +80,11 @@ export default function RecommendedMatches() {
 
         </div>
 
-        <Link to="/discover" className="btn-ghost font-mono text-xs uppercase tracking-widest">See all</Link>
+        {showSeeAll && (
+
+          <Link to="/discover" className="btn-ghost font-mono text-xs uppercase tracking-widest">See all</Link>
+
+        )}
 
       </div>
 

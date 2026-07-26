@@ -4,6 +4,8 @@ import SkillSwapLogo from '../landing/SkillSwapLogo'
 import { useAuthStore } from '../../store/useAuthStore'
 import api from '../../lib/api'
 import ChatbotWidget from '../ai/ChatbotWidget'
+import Avatar from '../ui/Avatar'
+import { isLocalhost } from '../../lib/env'
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -13,11 +15,11 @@ const navLinks = [
   { to: '/materials', label: 'Materials' },
   { to: '/progress', label: 'Progress' },
   { to: '/wallet', label: 'Wallet' },
+  // Localhost-only AI feature — filtered out in production below.
+  { to: '/skill-ai', label: 'AI Skill Insights', localOnly: true },
 ]
 
-function initials(name = '') {
-  return name.split(' ').map((part) => part[0]).join('').slice(0, 2).toUpperCase()
-}
+const visibleNavLinks = navLinks.filter((link) => !link.localOnly || isLocalhost())
 
 function parsePayload(n) {
   if (!n?.payload) return {}
@@ -176,10 +178,11 @@ function navActive(label, pathname) {
   if (label === 'Materials') return pathname === '/materials'
   if (label === 'Progress') return pathname === '/progress'
   if (label === 'Wallet') return pathname === '/wallet'
+  if (label === 'AI Skill Insights') return pathname === '/skill-ai'
   return false
 }
 
-function SidebarNav({ links, pathname, onNavigate }) {
+function SidebarNav({ links, pathname, onNavigate, unreadChat = 0 }) {
   const { user } = useAuthStore()
 
   return (
@@ -194,8 +197,10 @@ function SidebarNav({ links, pathname, onNavigate }) {
             className={`relative flex items-center ${active ? 'nav-link-active' : 'nav-link'}`}
           >
             {link.label}
-            {link.badge && !active && (
-              <span className="absolute right-3 top-3 h-2 w-2 rounded-full bg-accent" />
+            {link.badge && unreadChat > 0 && (
+              <span className="absolute right-2.5 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-accent px-1.5 font-mono text-[10px] font-semibold text-white shadow-accent-glow">
+                {unreadChat > 99 ? '99+' : unreadChat}
+              </span>
             )}
           </Link>
         )
@@ -217,9 +222,26 @@ export default function AppShell({ children, title, subtitle }) {
   const { user, logout } = useAuthStore()
   const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [unreadChat, setUnreadChat] = useState(0)
   const points = user?.points_balance ?? 200
 
   useEffect(() => { setSidebarOpen(false) }, [location.pathname])
+
+  useEffect(() => {
+    let active = true
+    const load = () => {
+      api.getConversations()
+        .then((d) => {
+          if (!active) return
+          const total = (d.conversations || []).reduce((sum, c) => sum + (c.unread || 0), 0)
+          setUnreadChat(total)
+        })
+        .catch(() => {})
+    }
+    load()
+    const interval = setInterval(load, 30000)
+    return () => { active = false; clearInterval(interval) }
+  }, [location.pathname])
 
   useEffect(() => {
     document.body.style.overflow = sidebarOpen ? 'hidden' : ''
@@ -235,7 +257,7 @@ export default function AppShell({ children, title, subtitle }) {
       )}
 
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-white/[0.06] bg-backgroundElevated/95 backdrop-blur-xl transition-transform duration-300 ease-expo lg:static lg:translate-x-0 ${
+        className={`app-sidebar fixed inset-y-0 left-0 z-50 flex w-[260px] flex-col border-r border-white/[0.06] backdrop-blur-xl transition-transform duration-300 ease-expo lg:static lg:translate-x-0 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
@@ -245,12 +267,29 @@ export default function AppShell({ children, title, subtitle }) {
             <span className="text-xl font-semibold tracking-tight">Skillswap</span>
           </Link>
 
-          <SidebarNav links={navLinks} pathname={location.pathname} onNavigate={closeSidebar} />
+          <SidebarNav links={visibleNavLinks} pathname={location.pathname} onNavigate={closeSidebar} unreadChat={unreadChat} />
+
+          <div className="mt-1 space-y-1">
+            <Link
+              to="/settings"
+              onClick={closeSidebar}
+              className={location.pathname === '/settings' ? 'nav-link-active flex items-center' : 'nav-link flex items-center'}
+            >
+              Settings
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="nav-link flex w-full items-center text-left"
+            >
+              Logout
+            </button>
+          </div>
         </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/[0.06] bg-backgroundBase/80 px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
+        <header className="app-topbar sticky top-0 z-30 flex items-center justify-between gap-3 border-b border-white/[0.06] px-4 py-3 backdrop-blur-xl sm:px-6 lg:px-8">
           <button
             type="button"
             onClick={() => setSidebarOpen(true)}
@@ -276,17 +315,14 @@ export default function AppShell({ children, title, subtitle }) {
             <NotificationBell />
             <div className="group relative">
               <Link to="/profile" className="flex max-w-[160px] items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition duration-200 hover:bg-white/[0.05] sm:max-w-none sm:gap-3 sm:pr-3">
-                <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-accent/20 font-mono text-xs text-[#c7cbf5]">
-                  {initials(user?.name)}
-                </span>
+                <Avatar
+                  user={user}
+                  className="h-9 w-9 shrink-0 rounded-xl border border-accent/30 bg-accent/20 font-mono text-xs text-[#c7cbf5]"
+                />
                 <span className="hidden truncate text-sm sm:inline">{user?.name || 'User'}</span>
               </Link>
               <div className="invisible absolute right-0 top-full z-20 mt-2 w-40 overflow-hidden rounded-xl border border-white/[0.06] bg-backgroundElevated py-1 opacity-0 shadow-card transition duration-200 group-hover:visible group-hover:opacity-100">
                 <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-white/[0.05]">Profile</Link>
-                <Link to="/settings" className="block px-4 py-2 text-sm hover:bg-white/[0.05]">Settings</Link>
-                <button type="button" onClick={logout} className="block w-full px-4 py-2 text-left text-sm hover:bg-white/[0.05]">
-                  Logout
-                </button>
               </div>
             </div>
           </div>

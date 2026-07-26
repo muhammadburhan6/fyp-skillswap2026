@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { useAuthStore } from './store/useAuthStore'
+import { applyThemeForRoute } from './lib/theme'
 import ErrorBoundary from './components/ErrorBoundary'
 import ProtectedRoute from './components/ProtectedRoute'
 import AmbientBackground from './components/ui/AmbientBackground'
@@ -19,11 +20,19 @@ import Progress from './pages/Progress'
 import Materials from './pages/Materials'
 import Settings from './pages/Settings'
 import Admin from './pages/Admin'
+import SkillAI from './pages/SkillAI'
 
 function AuthLoader({ children }) {
   const loadUser = useAuthStore((s) => s.loadUser)
   useEffect(() => { loadUser() }, [loadUser])
   return children
+}
+
+// Applies the saved light/dark theme on app pages, forces dark on public pages.
+function ThemeManager() {
+  const location = useLocation()
+  useEffect(() => { applyThemeForRoute(location.pathname) }, [location.pathname])
+  return null
 }
 
 export default function App() {
@@ -36,6 +45,7 @@ export default function App() {
       <AmbientBackground />
       <AuthLoader>
         <BrowserRouter>
+          <ThemeManager />
           <Routes>
             <Route path="/" element={<Landing />} />
             <Route path="/explore" element={<ExploreFeatures />} />
@@ -51,6 +61,7 @@ export default function App() {
             <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
             <Route path="/materials" element={<ProtectedRoute><Materials /></ProtectedRoute>} />
             <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
+            <Route path="/skill-ai" element={<ProtectedRoute><SkillAI /></ProtectedRoute>} />
             {/* legacy redirects */}
             <Route path="/matches" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
             <Route path="/chat" element={<ProtectedRoute><Messenger /></ProtectedRoute>} />
