@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import SkillSwapLogo from '../components/landing/SkillSwapLogo'
 import { useAuthStore } from '../store/useAuthStore'
 import api from '../lib/api'
-import { isFirebaseConfigured, signInWithGoogle } from '../lib/firebase'
+import { isFirebaseConfigured, signInWithGoogle, signInWithGoogleRedirect, completeGoogleRedirect } from '../lib/firebase'
 
 export default function Auth() {
   const [params, setParams] = useSearchParams()
@@ -128,6 +128,28 @@ export default function Auth() {
     }
   }
 
+  // Finish a Google sign-in that fell back to a full-page redirect.
+  useEffect(() => {
+    let active = true
+    completeGoogleRedirect()
+      .then((idToken) => {
+        if (!active || !idToken) return
+        setLoading(true)
+        return loginWithGoogle(idToken).then((user) => finish(user))
+      })
+      .catch((err) => { if (active) setError(mapAuthError(err)) })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const POPUP_FALLBACK_CODES = new Set([
+    'auth/popup-closed-by-user',
+    'auth/cancelled-popup-request',
+    'auth/popup-blocked',
+    'auth/operation-not-supported-in-this-environment',
+  ])
+
   const handleGoogle = async () => {
     setError('')
     if (!isFirebaseConfigured()) {
@@ -140,7 +162,18 @@ export default function Auth() {
       const user = await loginWithGoogle(idToken)
       finish(user)
     } catch (err) {
-      setError(mapAuthError(err))
+      // Popup blocked/closed by the browser (COOP / third-party-cookie policy) —
+      // retry with a full-page redirect, which those policies don't break.
+      if (POPUP_FALLBACK_CODES.has(err.code)) {
+        try {
+          await signInWithGoogleRedirect()
+          return // page navigates to Google; result handled on return via the effect above
+        } catch (redirectErr) {
+          setError(mapAuthError(redirectErr))
+        }
+      } else {
+        setError(mapAuthError(err))
+      }
     } finally {
       setLoading(false)
     }
