@@ -162,6 +162,58 @@ def test_admin_routes_forbidden_for_normal_users(client, make_user):
         ("get", "/api/admin/disputes"),
         ("get", "/api/admin/moderation"),
         ("get", "/api/admin/analytics"),
+        ("get", "/api/admin/reports"),
     ]:
         resp = getattr(client, method)(path, headers=auth_header(user["token"]))
         assert resp.status_code == 403
+
+
+def test_user_report_and_admin_review_flow(client, make_user):
+    admin = make_user(_email("admin"), role="admin")
+    reporter = make_user(_email("rep"))
+    spammer = make_user(_email("spam"))
+
+    # Self-report rejected
+    self_rep = client.post(
+        "/api/reports",
+        json={"reported_user_id": reporter["id"], "reason": "spam"},
+        headers=auth_header(reporter["token"]),
+    )
+    assert self_rep.status_code == 400
+
+    # Valid report
+    rep = client.post(
+        "/api/reports",
+        json={"reported_user_id": spammer["id"], "reason": "spam", "details": "Spamming link"},
+        headers=auth_header(reporter["token"]),
+    )
+    assert rep.status_code == 201
+    report_id = rep.get_json()["report"]["id"]
+
+    # Duplicate open report rejected
+    dup = client.post(
+        "/api/reports",
+        json={"reported_user_id": spammer["id"], "reason": "spam"},
+        headers=auth_header(reporter["token"]),
+    )
+    assert dup.status_code == 409
+
+    # Admin lists reports
+    listing = client.get("/api/admin/reports", headers=auth_header(admin["token"]))
+    assert listing.status_code == 200
+    reports = listing.get_json()["reports"]
+    assert any(r["id"] == report_id for r in reports)
+
+    # Admin suspends reported user
+    susp = client.patch(
+        f"/api/admin/reports/{report_id}",
+        json={"action": "suspend_user"},
+        headers=auth_header(admin["token"]),
+    )
+    assert susp.status_code == 200
+    assert susp.get_json()["report"]["status"] == "reviewed"
+
+    # Suspended user cannot log in
+    login = client.post("/api/auth/login", json={"email": spammer["email"], "password": spammer["password"]})
+    assert login.status_code == 403
+

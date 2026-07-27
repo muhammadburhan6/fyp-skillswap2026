@@ -390,6 +390,17 @@
     height: 1.15rem;
   }
 
+  .nav-link-logout:hover {
+    background-color: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.25);
+    color: #ef4444;
+    padding-left: 1.15rem;
+  }
+  .nav-link-logout:hover::before {
+    height: 1.15rem;
+    background-color: #ef4444;
+  }
+
   .nav-link-active {
     position: relative;
     display: block;

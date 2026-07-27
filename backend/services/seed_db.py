@@ -5,6 +5,7 @@ from database.models import (
     Match,
     Message,
     PointsTransaction,
+    Report,
     Session,
     Skill,
     SkillModeration,
@@ -309,6 +310,17 @@ def seed_admin_demo_data(db):
                 category="General",
                 status="pending",
                 flagged=True,
+            ))
+
+    if db.query(Report).count() == 0:
+        users = db.query(User).filter(User.role != "admin").limit(3).all()
+        if len(users) >= 2:
+            db.add(Report(
+                reporter_id=users[0].id,
+                reported_user_id=users[1].id,
+                reason="spam",
+                details="User sent repetitive spam promotional messages during skill swap.",
+                status="open",
             ))
 
     admin = db.query(User).filter_by(email="admin@skillswap.io").first()

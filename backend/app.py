@@ -26,6 +26,7 @@ from routes.newsletter import newsletter_bp
 from routes.notifications import notifications_bp
 from routes.progress import progress_bp
 from routes.recommendations import recommendations_bp
+from routes.reports import reports_bp
 from routes.reviews import reviews_bp
 from routes.sessions import sessions_bp
 from routes.users import users_bp
@@ -143,6 +144,7 @@ def create_app(config_class: type = Config) -> Flask:
     app.register_blueprint(newsletter_bp, url_prefix="/api/newsletter")
     app.register_blueprint(recommendations_bp, url_prefix="/api/recommendations")
     app.register_blueprint(reviews_bp, url_prefix="/api/reviews")
+    app.register_blueprint(reports_bp, url_prefix="/api/reports")
     app.register_blueprint(lms_bp, url_prefix="/api/lms")
     app.register_blueprint(payments_bp, url_prefix="/api/payments")
 

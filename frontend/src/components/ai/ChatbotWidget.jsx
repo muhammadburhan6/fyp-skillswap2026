@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 
 import { useNavigate } from 'react-router-dom'
 
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion } from 'framer-motion'
 
 import api from '../../lib/api'
 
@@ -40,6 +40,10 @@ export default function ChatbotWidget() {
 
   const bottomRef = useRef(null)
 
+  const panelRef = useRef(null)
+
+  const buttonRef = useRef(null)
+
   const navigate = useNavigate()
 
 
@@ -49,6 +53,39 @@ export default function ChatbotWidget() {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
 
   }, [messages, loading])
+
+
+
+  // Close the chat when the user clicks anywhere outside it (but not on the
+  // floating toggle button, which manages open/close itself) or presses Escape.
+
+  useEffect(() => {
+
+    if (!open) return
+
+    const onPointerDown = (e) => {
+
+      if (panelRef.current?.contains(e.target) || buttonRef.current?.contains(e.target)) return
+
+      setOpen(false)
+
+    }
+
+    const onKeyDown = (e) => { if (e.key === 'Escape') setOpen(false) }
+
+    document.addEventListener('mousedown', onPointerDown)
+
+    document.addEventListener('keydown', onKeyDown)
+
+    return () => {
+
+      document.removeEventListener('mousedown', onPointerDown)
+
+      document.removeEventListener('keydown', onKeyDown)
+
+    }
+
+  }, [open])
 
 
 
@@ -96,6 +133,8 @@ export default function ChatbotWidget() {
 
       <button
 
+        ref={buttonRef}
+
         type="button"
 
         onClick={() => setOpen(!open)}
@@ -106,17 +145,17 @@ export default function ChatbotWidget() {
 
       >
 
-        ✦
+        {open ? '✕' : '✦'}
 
       </button>
 
 
 
-      <AnimatePresence>
-
-        {open && (
+      {open && (
 
           <motion.div
+
+            ref={panelRef}
 
             initial={{ opacity: 0, y: 12 }}
 
@@ -130,19 +169,43 @@ export default function ChatbotWidget() {
 
           >
 
-            <div className="border-b border-white/[0.06] px-4 py-3">
+            <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
 
-              <p className="font-display font-semibold text-foreground">SkillBot</p>
+              <div>
 
-              {mode === 'ai' ? (
+                <p className="font-display font-semibold text-foreground">SkillBot</p>
 
-                <p className="font-mono text-[10px] uppercase tracking-widest text-mutedForeground">GPT-powered · knows your account</p>
+                {mode === 'ai' ? (
 
-              ) : (
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-mutedForeground">GPT-powered · knows your account</p>
 
-                <p className="font-mono text-[10px] uppercase tracking-widest text-mutedForeground">Answers live from your account</p>
+                ) : (
 
-              )}
+                  <p className="font-mono text-[10px] uppercase tracking-widest text-mutedForeground">Answers live from your account</p>
+
+                )}
+
+              </div>
+
+              <button
+
+                type="button"
+
+                onClick={() => setOpen(false)}
+
+                aria-label="Minimize chat"
+
+                className="-mr-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-lg text-mutedForeground transition duration-200 hover:bg-white/[0.08] hover:text-foreground"
+
+              >
+
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+
+                </svg>
+
+              </button>
 
             </div>
 
@@ -255,8 +318,6 @@ export default function ChatbotWidget() {
           </motion.div>
 
         )}
-
-      </AnimatePresence>
 
     </>
 

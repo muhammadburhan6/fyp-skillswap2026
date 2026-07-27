@@ -48,12 +48,17 @@ function notificationLabel(n) {
     const amt = typeof p.paid_usd === 'number' ? ` · $${p.paid_usd.toFixed(2)}` : ''
     return `Paid session confirmed${who}${skill}${amt}`
   }
+  if (n.type === 'account_warning') {
+    if (p.status === 'banned') return 'Your account has been banned'
+    if (p.status === 'suspended') return 'Your account has been suspended'
+    if (p.dispute_id) return 'Warning from a dispute review'
+    return 'Account notice from the moderation team'
+  }
   const map = {
     match_request: 'New match request',
     match_accepted: 'Your match was accepted',
     match_declined: 'Your match request was declined',
     points_granted: 'Bonus Skill Points added by admin',
-    account_warning: 'Account notice from moderation team',
     session_booked: 'A session was booked',
     session_completed: 'A session was completed',
     session_reminder: 'Upcoming session reminder',
@@ -61,6 +66,59 @@ function notificationLabel(n) {
     new_review: 'Someone left you a review',
   }
   return map[n.type] || n.type || 'Notification'
+}
+
+// A short sentence under the title so each notification says what it's about.
+function notificationDescription(n) {
+  const p = parsePayload(n)
+  if (n.type === 'account_warning') {
+    if (p.reason) return p.reason
+    if (p.status === 'banned') return 'Your account was banned after a moderation review. Contact support if you believe this is a mistake.'
+    if (p.status === 'suspended') return 'Your account is temporarily suspended while the team reviews recent activity.'
+    if (p.dispute_id) return 'An admin reviewed a dispute involving your account.'
+    return 'The moderation team posted an update about your account.'
+  }
+  const map = {
+    match_request: p.from_name ? `${p.from_name} wants to swap skills with you.` : 'Someone wants to swap skills with you.',
+    match_accepted: 'You can now message each other and schedule a session.',
+    match_declined: 'Browse other partners in Matches to find a new swap.',
+    points_granted: typeof p.amount === 'number' ? `${p.amount} Skill Points were added to your wallet.` : 'New Skill Points were added to your wallet.',
+    session_booked: 'Check your calendar for the details.',
+    session_completed: 'Leave a review for your partner from the calendar.',
+    session_reminder: 'Your session is coming up soon — see the calendar.',
+    material_published: 'A partner shared new learning material with you.',
+    new_review: p.rating ? `They rated you ${p.rating}★. Open your profile to read it.` : 'Open your profile to read it.',
+    message: 'Open the messenger to reply.',
+    paid_session_booked: 'View the booking on your calendar.',
+    paid_session_confirmed: 'View the booking on your calendar.',
+  }
+  return map[n.type] || null
+}
+
+// The backend stores timestamps as naive UTC (no timezone suffix); mark them
+// UTC so relative time is correct regardless of the viewer's timezone.
+function parseServerDate(iso) {
+  if (!iso) return null
+  let s = String(iso)
+  if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T')
+  if (!/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += 'Z'
+  const d = new Date(s)
+  return Number.isNaN(d.getTime()) ? null : d
+}
+
+function notificationTimeAgo(iso) {
+  const d = parseServerDate(iso)
+  if (!d) return ''
+  const then = d.getTime()
+  const s = Math.max(0, Math.floor((Date.now() - then) / 1000))
+  if (s < 60) return 'just now'
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ago`
+  const h = Math.floor(m / 60)
+  if (h < 24) return `${h}h ago`
+  const days = Math.floor(h / 24)
+  if (days < 7) return `${days}d ago`
+  return d.toLocaleDateString()
 }
 
 const NOTIFICATION_ROUTES = {
@@ -152,17 +210,24 @@ function NotificationBell() {
             {items.length === 0 && (
               <p className="px-4 py-6 text-center text-sm text-mutedForeground">No notifications</p>
             )}
-            {items.map((n) => (
-              <button
-                key={n.id}
-                type="button"
-                onClick={() => openNotification(n)}
-                className={`flex w-full items-start gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition duration-200 hover:bg-white/[0.05] ${n.read ? 'opacity-60' : ''}`}
-              >
-                {!n.read && <span className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" />}
-                <span className="flex-1 text-sm">{notificationLabel(n)}</span>
-              </button>
-            ))}
+            {items.map((n) => {
+              const desc = notificationDescription(n)
+              return (
+                <button
+                  key={n.id}
+                  type="button"
+                  onClick={() => openNotification(n)}
+                  className={`flex w-full items-start gap-3 border-b border-white/[0.06] px-4 py-3 text-left transition duration-200 hover:bg-white/[0.05] ${n.read ? 'opacity-60' : ''}`}
+                >
+                  <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read ? 'bg-transparent' : 'bg-accent'}`} />
+                  <span className="flex-1">
+                    <span className="block text-sm font-medium text-foreground">{notificationLabel(n)}</span>
+                    {desc && <span className="mt-0.5 block text-xs leading-snug text-mutedForeground">{desc}</span>}
+                    <span className="mt-1 block font-mono text-[10px] uppercase tracking-widest text-mutedForeground/80">{notificationTimeAgo(n.created_at)}</span>
+                  </span>
+                </button>
+              )
+            })}
           </div>
         </div>
       )}
@@ -280,7 +345,7 @@ export default function AppShell({ children, title, subtitle }) {
             <button
               type="button"
               onClick={logout}
-              className="nav-link flex w-full items-center text-left"
+              className="nav-link nav-link-logout flex w-full items-center text-left"
             >
               Logout
             </button>
@@ -313,18 +378,13 @@ export default function AppShell({ children, title, subtitle }) {
               <span className="font-semibold">{points} SP</span>
             </Link>
             <NotificationBell />
-            <div className="group relative">
-              <Link to="/profile" className="flex max-w-[160px] items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition duration-200 hover:bg-white/[0.05] sm:max-w-none sm:gap-3 sm:pr-3">
-                <Avatar
-                  user={user}
-                  className="h-9 w-9 shrink-0 rounded-xl border border-accent/30 bg-accent/20 font-mono text-xs text-[#c7cbf5]"
-                />
-                <span className="hidden truncate text-sm sm:inline">{user?.name || 'User'}</span>
-              </Link>
-              <div className="invisible absolute right-0 top-full z-20 mt-2 w-40 overflow-hidden rounded-xl border border-white/[0.06] bg-backgroundElevated py-1 opacity-0 shadow-card transition duration-200 group-hover:visible group-hover:opacity-100">
-                <Link to="/profile" className="block px-4 py-2 text-sm hover:bg-white/[0.05]">Profile</Link>
-              </div>
-            </div>
+            <Link to="/profile" className="flex max-w-[160px] items-center gap-2 rounded-lg py-1 pl-1 pr-2 transition duration-200 hover:bg-white/[0.05] sm:max-w-none sm:gap-3 sm:pr-3">
+              <Avatar
+                user={user}
+                className="h-9 w-9 shrink-0 rounded-xl border border-accent/30 bg-accent/20 font-mono text-xs text-[#c7cbf5]"
+              />
+              <span className="hidden truncate text-sm sm:inline">{user?.name || 'User'}</span>
+            </Link>
           </div>
         </header>
 

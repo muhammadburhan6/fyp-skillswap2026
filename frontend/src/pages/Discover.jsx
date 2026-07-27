@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import AppShell from '../components/layout/AppShell'
 import Avatar from '../components/ui/Avatar'
+import UserReportMenu from '../components/ui/UserReportMenu'
 import api from '../lib/api'
 import { localInputToISO } from '../lib/dateTime'
 
@@ -28,13 +29,14 @@ function IncomingRequests({ requests, onAccept, onDecline }) {
               </p>
             </div>
             <span className="badge">{Math.round(r.match_score)}%</span>
-            <div className="flex gap-2">
+            <div className="flex items-center gap-2">
               <button type="button" onClick={() => onAccept(r)} className="btn-primary px-4 py-2 text-xs">
                 Accept
               </button>
               <button type="button" onClick={() => onDecline(r)} className="btn-outline px-4 py-2 text-xs">
                 Decline
               </button>
+              <UserReportMenu targetUser={r.user} />
             </div>
           </div>
         ))}
@@ -231,16 +233,19 @@ export default function Discover() {
         {matches.map((m) => {
           const priceEntry = getPriceForMatch(m)
           return (
-            <div key={m.user.id} className="card flex flex-col">
-              <div className="flex items-start gap-4">
-                <Avatar
-                  user={m.user}
-                  className="h-12 w-12 shrink-0 rounded-full border border-accent/30 bg-accent/15 font-display text-lg text-accent"
-                />
-                <div className="min-w-0 flex-1">
-                  <h3 className="font-display text-xl font-semibold text-foreground">{m.user.name}</h3>
-                  <p className="mt-1 text-sm text-mutedForeground">Teaches: {m.user.skills_teach?.join(', ')}</p>
+            <div key={m.user.id} className="card relative flex flex-col">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-4 min-w-0 flex-1">
+                  <Avatar
+                    user={m.user}
+                    className="h-12 w-12 shrink-0 rounded-full border border-accent/30 bg-accent/15 font-display text-lg text-accent"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <h3 className="font-display text-xl font-semibold text-foreground">{m.user.name}</h3>
+                    <p className="mt-1 text-sm text-mutedForeground">Teaches: {m.user.skills_teach?.join(', ')}</p>
+                  </div>
                 </div>
+                <UserReportMenu targetUser={m.user} />
               </div>
 
               {m.user.bio && (

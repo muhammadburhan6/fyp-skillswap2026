@@ -9,6 +9,7 @@ from flask import Blueprint, jsonify, request
 from database.models import (
     Dispute,
     Match,
+    Report,
     Session as SwapSession,
     SessionLocal,
     Skill,
@@ -42,6 +43,7 @@ def stats(admin):
             "suspended_users": db.query(User).filter(User.status.in_(["suspended", "banned"])).count(),
             "open_disputes": db.query(Dispute).filter_by(status="open").count(),
             "pending_skills": db.query(SkillModeration).filter_by(status="pending").count(),
+            "open_reports": db.query(Report).filter_by(status="open").count(),
             "total_sessions": db.query(SwapSession).count(),
             "completed_sessions": db.query(SwapSession).filter_by(status="completed").count(),
             "platform_health": "healthy",
@@ -58,13 +60,18 @@ def all_users(admin):
     q = (request.args.get("q") or "").strip().lower()
     db = SessionLocal()
     try:
-        query = db.query(User)
+        # Admin accounts are never listed/managed here, so exclude them
+        # server-side; this makes `total` the real count of matching rows.
+        query = db.query(User).filter(User.role != "admin")
         if q:
             query = query.filter(
                 (User.name.ilike(f"%{q}%")) | (User.email.ilike(f"%{q}%"))
             )
         users = query.order_by(User.created_at.desc()).all()
-        return jsonify({"users": [_admin_user_dict(u) for u in users]})
+        return jsonify({
+            "users": [_admin_user_dict(u) for u in users],
+            "total": len(users),
+        })
     finally:
         db.close()
 
@@ -96,6 +103,51 @@ def update_user_status(admin, user_id):
         db.close()
 
 
+def _perform_delete_user(db, admin, target):
+    if target.id == admin.id:
+        return False, "You cannot delete your own admin account", 400
+    if target.role == "admin":
+        return False, "Admin accounts cannot be deleted", 403
+
+    from database.models import (
+        Message,
+        Notification,
+        PointsTransaction,
+        Report,
+        Review,
+        UserBadge,
+    )
+
+    user_id = target.id
+    db.query(PointsTransaction).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(Notification).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(UserBadge).filter_by(user_id=user_id).delete(synchronize_session=False)
+    db.query(Review).filter(
+        (Review.reviewer_id == user_id) | (Review.reviewee_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(SwapSession).filter(
+        (SwapSession.teacher_id == user_id) | (SwapSession.learner_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(Match).filter(
+        (Match.user_a_id == user_id) | (Match.user_b_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(Message).filter_by(sender_id=user_id).delete(synchronize_session=False)
+    db.query(Dispute).filter(
+        (Dispute.reporter_id == user_id) | (Dispute.accused_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(Report).filter(
+        (Report.reporter_id == user_id) | (Report.reported_user_id == user_id)
+    ).delete(synchronize_session=False)
+    db.query(SkillModeration).filter_by(user_id=user_id).delete(synchronize_session=False)
+
+    target.skills_teach.clear()
+    target.skills_learn.clear()
+    target.conversations.clear()
+    db.delete(target)
+    db.commit()
+    return True, f"User {user_id} deleted", 200
+
+
 @admin_bp.route("/users/<int:user_id>", methods=["DELETE"])
 @require_admin
 def delete_user(admin, user_id):
@@ -103,49 +155,16 @@ def delete_user(admin, user_id):
     data = request.get_json(silent=True) or {}
     if data.get("confirm") != "DELETE":
         return jsonify({"error": "Type DELETE to confirm account deletion"}), 400
-    if user_id == admin.id:
-        return jsonify({"error": "You cannot delete your own admin account"}), 400
 
     db = SessionLocal()
     try:
         target = db.get(User, user_id)
         if not target:
             return jsonify({"error": "User not found"}), 404
-        if target.role == "admin":
-            return jsonify({"error": "Admin accounts cannot be deleted"}), 403
-
-        from database.models import (
-            Message,
-            Notification,
-            PointsTransaction,
-            Review,
-            UserBadge,
-        )
-
-        db.query(PointsTransaction).filter_by(user_id=user_id).delete(synchronize_session=False)
-        db.query(Notification).filter_by(user_id=user_id).delete(synchronize_session=False)
-        db.query(UserBadge).filter_by(user_id=user_id).delete(synchronize_session=False)
-        db.query(Review).filter(
-            (Review.reviewer_id == user_id) | (Review.reviewee_id == user_id)
-        ).delete(synchronize_session=False)
-        db.query(SwapSession).filter(
-            (SwapSession.teacher_id == user_id) | (SwapSession.learner_id == user_id)
-        ).delete(synchronize_session=False)
-        db.query(Match).filter(
-            (Match.user_a_id == user_id) | (Match.user_b_id == user_id)
-        ).delete(synchronize_session=False)
-        db.query(Message).filter_by(sender_id=user_id).delete(synchronize_session=False)
-        db.query(Dispute).filter(
-            (Dispute.reporter_id == user_id) | (Dispute.accused_id == user_id)
-        ).delete(synchronize_session=False)
-        db.query(SkillModeration).filter_by(user_id=user_id).delete(synchronize_session=False)
-
-        target.skills_teach.clear()
-        target.skills_learn.clear()
-        target.conversations.clear()
-        db.delete(target)
-        db.commit()
-        return jsonify({"message": f"User {user_id} deleted"})
+        ok, msg, status_code = _perform_delete_user(db, admin, target)
+        if not ok:
+            return jsonify({"error": msg}), status_code
+        return jsonify({"message": msg})
     finally:
         db.close()
 
@@ -363,3 +382,71 @@ def analytics(admin):
         })
     finally:
         db.close()
+
+
+# --------------------------------------------------------------- reports
+
+def _report_dict(db, r):
+    reporter = db.get(User, r.reporter_id)
+    reported = db.get(User, r.reported_user_id)
+    return {
+        "id": r.id,
+        "reporter": user_to_dict(reporter) if reporter else None,
+        "reported_user": user_to_dict(reported) if reported else None,
+        "reason": r.reason,
+        "details": r.details or "",
+        "status": r.status,
+        "created_at": r.created_at.isoformat() if r.created_at else None,
+    }
+
+
+@admin_bp.route("/reports", methods=["GET"])
+@require_admin
+def list_reports(admin):
+    db = SessionLocal()
+    try:
+        reports = db.query(Report).order_by(Report.created_at.desc()).all()
+        return jsonify({"reports": [_report_dict(db, r) for r in reports]})
+    finally:
+        db.close()
+
+
+@admin_bp.route("/reports/<int:report_id>", methods=["PATCH"])
+@require_admin
+def update_report(admin, report_id):
+    data = request.get_json() or {}
+    action = data.get("action")
+    if action not in ("dismiss", "suspend_user", "delete_user"):
+        return jsonify({"error": "Invalid action"}), 400
+
+    db = SessionLocal()
+    try:
+        report = db.get(Report, report_id)
+        if not report:
+            return jsonify({"error": "Report not found"}), 404
+
+        reported_user = db.get(User, report.reported_user_id)
+
+        if action == "dismiss":
+            report.status = "dismissed"
+            db.commit()
+            return jsonify({"report": _report_dict(db, report)})
+        elif action == "suspend_user":
+            report.status = "reviewed"
+            if reported_user and reported_user.role != "admin":
+                reported_user.status = "suspended"
+                notify(db, reported_user.id, "account_warning", {"status": "suspended", "reason": "Account suspended following user report review."})
+            db.commit()
+            return jsonify({"report": _report_dict(db, report)})
+        else:  # delete_user
+            report.status = "reviewed"
+            if not reported_user:
+                db.commit()
+                return jsonify({"message": "Report reviewed (user already removed)"})
+            ok, msg, status_code = _perform_delete_user(db, admin, reported_user)
+            if not ok:
+                return jsonify({"error": msg}), status_code
+            return jsonify({"message": f"Report reviewed and user deleted: {msg}"})
+    finally:
+        db.close()
+

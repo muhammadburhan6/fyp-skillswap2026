@@ -126,6 +126,20 @@ class Dispute(Base):
     resolved_at = Column(DateTime, nullable=True)
 
 
+class Report(Base):
+    __tablename__ = "reports"
+
+    id = Column(Integer, primary_key=True)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    reported_user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    # spam | harassment | scam | inappropriate | other
+    reason = Column(String(50), nullable=False)
+    details = Column(Text, default="")
+    # open | reviewed | dismissed
+    status = Column(String(20), default="open")
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class SkillModeration(Base):
     __tablename__ = "skill_moderations"
 

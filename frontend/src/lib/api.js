@@ -20,6 +20,14 @@ api.interceptors.response.use(
     if (error?.response?.status === 401) {
       handleUnauthorized()
     }
+    // No `response` means the request never reached the server (offline,
+    // DNS/connection refused, CORS) or timed out. Surface a friendly,
+    // actionable message app-wide instead of the raw "Network Error".
+    const isCanceled = error?.code === 'ERR_CANCELED' || error?.name === 'CanceledError'
+    if (!error?.response && !isCanceled) {
+      error.userMessage = "Can't reach the server. Check your connection and try again."
+      error.message = error.userMessage
+    }
     return Promise.reject(error)
   },
 )
@@ -57,6 +65,9 @@ export default {
   adminUpdateDispute: (id, data) => api.patch(`/admin/disputes/${id}`, data).then((r) => r.data),
   adminModeration: () => api.get('/admin/moderation').then((r) => r.data),
   adminUpdateModeration: (id, data) => api.patch(`/admin/moderation/${id}`, data).then((r) => r.data),
+  reportUser: (data) => api.post('/reports', data).then((r) => r.data),
+  adminReports: () => api.get('/admin/reports').then((r) => r.data),
+  adminUpdateReport: (id, data) => api.patch(`/admin/reports/${id}`, data).then((r) => r.data),
   adminAnalytics: () => api.get('/admin/analytics').then((r) => r.data),
   getSessions: () => api.get('/sessions').then((r) => r.data),
   createSession: (data) => api.post('/sessions', data).then((r) => r.data),
@@ -113,7 +124,7 @@ export default {
   markNotificationRead: (id) => api.patch(`/notifications/${id}/read`).then((r) => r.data),
   markAllNotificationsRead: () => api.patch('/notifications/read-all').then((r) => r.data),
   adminStats: () => api.get('/admin/stats').then((r) => r.data),
-  adminUsers: (q) => api.get('/admin/users', { params: q ? { q } : {} }).then((r) => r.data),
+  adminUsers: (q, config = {}) => api.get('/admin/users', { params: q ? { q } : {}, ...config }).then((r) => r.data),
   aiChat: (message) => api.post('/ai/chat', { message }).then((r) => r.data),
   getSkillDemand: () => api.get('/ai/skill-demand').then((r) => r.data),
   subscribeNewsletter: (email) => api.post('/newsletter/subscribe', { email }).then((r) => r.data),

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AppShell from '../components/layout/AppShell'
+import UserReportMenu from '../components/ui/UserReportMenu'
 import api from '../lib/api'
 import { useAuthStore } from '../store/useAuthStore'
 import { useSocket } from '../hooks/useSocket'
@@ -251,12 +252,15 @@ export default function Messenger() {
                   </p>
                 </div>
                 {active.other_user?.id && (
-                  <Link
-                    to={`/materials?partner=${active.other_user.id}`}
-                    className="btn-outline shrink-0 px-3 py-1.5 text-xs"
-                  >
-                    Materials
-                  </Link>
+                  <div className="flex items-center gap-2">
+                    <Link
+                      to={`/materials?partner=${active.other_user.id}`}
+                      className="btn-outline shrink-0 px-3 py-1.5 text-xs"
+                    >
+                      Materials
+                    </Link>
+                    <UserReportMenu targetUser={active.other_user} />
+                  </div>
                 )}
               </header>
 

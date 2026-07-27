@@ -46,6 +46,8 @@ def require_auth(f):
         user = get_current_user()
         if not user:
             return jsonify({"error": "Unauthorized"}), 401
+        if user.role != "admin" and user.status in ("suspended", "banned"):
+            return jsonify({"error": "Your account has been suspended"}), 403
         return f(user, *args, **kwargs)
     return decorated
 

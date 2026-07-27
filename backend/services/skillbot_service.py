@@ -320,14 +320,21 @@ def _skill_teachers_answer(db, user, skill) -> dict:
         )
         return {"reply": reply, "link": None}
 
-    my_learn_keys = {s.name.lower() for s in user.skills_learn}
     ranked = sorted(teachers, key=lambda t: compute_match_score(user, t), reverse=True)[:4]
+    my_teach_keys = {x.name.lower() for x in user.skills_teach}
     lines = []
     for t in ranked:
         score = round(compute_match_score(user, t))
-        wants_mine = any(s.name.lower() in {x.name.lower() for x in user.skills_teach} for s in t.skills_learn)
-        tag = " (perfect swap!)" if wants_mine else ""
-        lines.append(f"• {t.name} — {score}% match{tag}")
+        wants_mine = any(s.name.lower() in my_teach_keys for s in t.skills_learn)
+        # Only surface a match % when it's actually meaningful; a bare "0% match"
+        # (e.g. when you haven't listed skills yet) just looks broken.
+        detail = []
+        if score > 0:
+            detail.append(f"{score}% match")
+        if wants_mine:
+            detail.append("perfect swap!")
+        suffix = f" — {', '.join(detail)}" if detail else ""
+        lines.append(f"• {t.name}{suffix}")
 
     reply = (
         f"{len(teachers)} user(s) teach {skill.name}. Your best options:\n"
@@ -339,6 +346,60 @@ def _skill_teachers_answer(db, user, skill) -> dict:
 
 def _contains(message, *words):
     return any(w in message for w in words)
+
+
+# Phrases that mean "help me find a person who teaches X".
+_LOOKUP_PHRASES = (
+    "who teach", "who can teach", "who teaches", "teacher", "tutor", "mentor",
+    "find me", "find a", "find someone", "looking for", "someone who", "who knows",
+    "match for", "matches for", "teach me", "need someone", "connect me", "partner for",
+)
+# Markers that mean the user wants advice / a solution, not just a name list —
+# even if a skill is mentioned, let the AI actually help.
+_ADVICE_MARKERS = (
+    "what should", "how do", "how can", "how to", "why ", "should i", "struggl",
+    "can't", "cannot", "not able", "help me", "any tip", "advice", "confused",
+    "stuck", "problem", "issue", "not working", "doesn't work",
+)
+
+
+def _is_teacher_lookup(message: str) -> bool:
+    """True only when the user is plainly asking to find a teacher/partner for a
+    skill — not when they're describing a problem that happens to mention one."""
+    m = (message or "").strip().lower()
+    if not m:
+        return False
+    if any(a in m for a in _ADVICE_MARKERS):
+        return False
+    if any(p in m for p in _LOOKUP_PHRASES):
+        return True
+    # Short messages are usually just a skill name ("python", "content writing").
+    words = [w for w in re.split(r"[^a-z0-9+#]+", m) if w]
+    return len(words) <= 3
+
+
+def _account_data_answer(db, user, message: str):
+    """Deterministic answers for factual account questions — exact data beats an
+    LLM guess. Returns None when it isn't a known data intent, so open-ended
+    problems fall through to the AI."""
+    m = (message or "").lower().strip()
+    if not m:
+        return None
+    if _contains(m, "point", "balance", "wallet", "sp?", " sp", "token"):
+        return _points_reply(db, user)
+    if _contains(m, "level", "xp"):
+        return _level_reply(user)
+    if _contains(m, "badge", "achievement"):
+        return _badges_reply(db, user)
+    if _contains(m, "streak", "daily bonus", "claim"):
+        return _streak_reply(user)
+    if _contains(m, "trend", "demand", "popular", "hot skill"):
+        return _trending_reply(db)
+    if _contains(m, "pending request", "incoming request", "my request"):
+        return _requests_reply(db, user)
+    if _contains(m, "next session", "my session", "upcoming session"):
+        return _sessions_reply(db, user)
+    return None
 
 
 def smart_answer(db, user, raw_message: str) -> dict:
@@ -445,15 +506,26 @@ def chat_reply(db, user, raw_message: str) -> dict:
             _chat_history[user.id] = []
         return {"reply": "Chat history has been reset. How can I help you today?", "mode": "ai"}
 
-    # Skill mentions always get the live teachers answer (with its deep link),
-    # in AI and smart mode alike — the AI can't produce in-app link buttons.
+    # A direct "who teaches X / find a partner for X" lookup is best answered by
+    # the live teachers list (with its deep link) — even when AI is available.
+    # But if the user is describing a problem that merely mentions a skill, let
+    # the AI actually solve it; we still attach the skill's Matches link below.
     skill = _find_skill_in_message(db, message_clean)
+    skill_link = None
     if skill:
-        answer = _skill_teachers_answer(db, user, skill)
-        out = {"reply": answer["reply"], "mode": "smart"}
-        if answer.get("link"):
-            out["link"] = answer["link"]
-        return out
+        skill_link = {"label": f"Open {skill.name} matches →", "to": f"/discover?skill={quote(skill.name)}"}
+        if _is_teacher_lookup(message_clean):
+            answer = _skill_teachers_answer(db, user, skill)
+            out = {"reply": answer["reply"], "mode": "smart"}
+            if answer.get("link"):
+                out["link"] = answer["link"]
+            return out
+
+    # Factual account questions get exact, deterministic answers (an LLM would
+    # only guess at the numbers). Open-ended problems fall through to the AI.
+    data_reply = _account_data_answer(db, user, message_clean)
+    if data_reply is not None:
+        return {"reply": data_reply, "mode": "smart"}
 
     from services.prompts import CHATBOT_SYSTEM_PROMPT
 
@@ -511,7 +583,10 @@ def chat_reply(db, user, raw_message: str) -> dict:
             # Add assistant response to history
             history.append({"role": "assistant", "content": reply})
             _chat_history[user.id] = history
-            return {"reply": reply, "mode": "ai"}
+            out = {"reply": reply, "mode": "ai"}
+            if skill_link:
+                out["link"] = skill_link
+            return out
 
         # Drop the unanswered user turn so failed attempts don't stack duplicates.
         if history and history[-1].get("role") == "user":
@@ -531,7 +606,10 @@ def chat_reply(db, user, raw_message: str) -> dict:
             )
             reply = (resp.choices[0].message.content or "").strip()
             if reply:
-                return {"reply": reply, "mode": "ai"}
+                out = {"reply": reply, "mode": "ai"}
+                if skill_link:
+                    out["link"] = skill_link
+                return out
         except Exception:
             logger.exception("OpenAI chat failed; using smart data-backed reply")
 

@@ -60,7 +60,7 @@ export default function App() {
             <Route path="/profile" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
             <Route path="/progress" element={<ProtectedRoute><Progress /></ProtectedRoute>} />
             <Route path="/materials" element={<ProtectedRoute><Materials /></ProtectedRoute>} />
-            <Route path="/admin" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
+            <Route path="/admin/:section?" element={<ProtectedRoute adminOnly><Admin /></ProtectedRoute>} />
             <Route path="/skill-ai" element={<ProtectedRoute><SkillAI /></ProtectedRoute>} />
             {/* legacy redirects */}
             <Route path="/matches" element={<ProtectedRoute><Discover /></ProtectedRoute>} />
