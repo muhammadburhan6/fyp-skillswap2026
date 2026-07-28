@@ -157,9 +157,7 @@ export default function Landing() {
             <button type="button" onClick={openSignup} className="btn-primary">
               Get Started →
             </button>
-            <button type="button" onClick={scrollToHow} className="btn-outline">
-              Explore Features
-            </button>
+            
           </div>
         </motion.div>
       </section>
