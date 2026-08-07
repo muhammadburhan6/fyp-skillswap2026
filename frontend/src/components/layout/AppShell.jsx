@@ -5,7 +5,7 @@ import { useAuthStore } from '../../store/useAuthStore'
 import api from '../../lib/api'
 import ChatbotWidget from '../ai/ChatbotWidget'
 import Avatar from '../ui/Avatar'
-import { isLocalhost } from '../../lib/env'
+
 
 const navLinks = [
   { to: '/dashboard', label: 'Dashboard' },
@@ -15,11 +15,10 @@ const navLinks = [
   { to: '/materials', label: 'Materials' },
   { to: '/progress', label: 'Progress' },
   { to: '/wallet', label: 'Wallet' },
-  // Localhost-only AI feature — filtered out in production below.
-  { to: '/skill-ai', label: 'AI Skill Insights', localOnly: true },
+  { to: '/skill-ai', label: 'AI Skill Insights' },
 ]
 
-const visibleNavLinks = navLinks.filter((link) => !link.localOnly || isLocalhost())
+const visibleNavLinks = navLinks
 
 function parsePayload(n) {
   if (!n?.payload) return {}
