@@ -51,7 +51,10 @@ export default {
   },
   onboarding: (data) => api.post('/users/onboarding', data).then((r) => r.data),
   dashboard: () => api.get('/dashboard').then((r) => r.data),
-  discoverMatches: (skill) => api.get('/matches/discover', { params: skill ? { skill } : {} }).then((r) => r.data),
+  discoverMatches: (skill, limit) =>
+    api.get('/matches/discover', {
+      params: { ...(skill ? { skill } : {}), ...(limit ? { limit } : {}) },
+    }).then((r) => r.data),
   getRecommendations: () => api.get('/recommendations').then((r) => r.data),
   requestMatch: (target_user_id) => api.post('/matches/request', { target_user_id }).then((r) => r.data),
   getMatchRequests: () => api.get('/matches/requests').then((r) => r.data),

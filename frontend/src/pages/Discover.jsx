@@ -130,6 +130,9 @@ function BookPaidModal({ match, onClose }) {
   )
 }
 
+// Matches shown per page; "Show more" adds another page.
+const PAGE_SIZE = 60
+
 export default function Discover() {
   const [matches, setMatches] = useState([])
   const [requests, setRequests] = useState([])
@@ -139,6 +142,8 @@ export default function Discover() {
   const [feedback, setFeedback] = useState('')
   const [teacherPricing, setTeacherPricing] = useState({})
   const [bookingMatch, setBookingMatch] = useState(null)
+  const [limit, setLimit] = useState(PAGE_SIZE)
+  const [totalMatches, setTotalMatches] = useState(0)
 
   useEffect(() => {
     api.getMatchRequests().then((d) => setRequests(d.requests || [])).catch(() => {})
@@ -146,10 +151,11 @@ export default function Discover() {
 
   useEffect(() => {
     const timer = setTimeout(() => {
-      api.discoverMatches(query.trim() || undefined)
+      api.discoverMatches(query.trim() || undefined, limit)
         .then(async (d) => {
           const list = d.matches || []
           setMatches(list)
+          setTotalMatches(d.total ?? list.length)
 
           // Fetch pricing for all unique teachers in parallel
           const uniqueTeacherIds = [...new Set(list.map((m) => m.user.id))]
@@ -167,7 +173,10 @@ export default function Discover() {
         .catch(() => {})
     }, query ? 300 : 0)
     return () => clearTimeout(timer)
-  }, [query])
+  }, [query, limit])
+
+  // A new search starts from the first page again.
+  useEffect(() => { setLimit(PAGE_SIZE) }, [query])
 
   const getPriceForMatch = (match) => {
     const teacherId = match.user.id
@@ -308,6 +317,23 @@ export default function Discover() {
           </div>
         )}
       </div>
+
+      {matches.length > 0 && (
+        <div className="mt-8 flex flex-col items-center gap-3">
+          <p className="font-mono text-xs text-mutedForeground">
+            Showing {matches.length} of {totalMatches} match{totalMatches === 1 ? '' : 'es'}
+          </p>
+          {matches.length < totalMatches && (
+            <button
+              type="button"
+              onClick={() => setLimit((n) => n + PAGE_SIZE)}
+              className="btn-outline px-6 py-2 text-xs"
+            >
+              Show more
+            </button>
+          )}
+        </div>
+      )}
     </AppShell>
   )
 }

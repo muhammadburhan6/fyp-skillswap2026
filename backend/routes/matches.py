@@ -9,6 +9,11 @@ from utils.serializers import user_to_dict
 
 matches_bp = Blueprint("matches", __name__)
 
+# How many ranked matches /discover returns per request, and the ceiling a
+# caller can ask for via ?limit=.
+DEFAULT_MATCH_LIMIT = 60
+MAX_MATCH_LIMIT = 500
+
 
 def _rating_rank(summary: dict) -> tuple:
     """Bayesian rating: avoids one 5-star review outranking proven teachers."""
@@ -24,6 +29,12 @@ def _rating_rank(summary: dict) -> tuple:
 @require_auth
 def discover(user):
     skill_query = (request.args.get("skill") or "").strip() or None
+    # Ranking already runs over the whole candidate set, so a larger page costs
+    # almost nothing here; the cap just keeps the response from getting huge.
+    try:
+        limit = min(max(int(request.args.get("limit", DEFAULT_MATCH_LIMIT)), 1), MAX_MATCH_LIMIT)
+    except (TypeError, ValueError):
+        limit = DEFAULT_MATCH_LIMIT
     db = SessionLocal()
     try:
         # Pull a broad candidate set, then apply review-aware ranking here.
@@ -72,8 +83,9 @@ def discover(user):
                     "rating_scope": rating_scope,
                     "rating_skill": r["skill_offered"] if rating_scope == "skill" else None,
                 }
-                for r, summary, rating_scope in enriched[:20]
-            ]
+                for r, summary, rating_scope in enriched[:limit]
+            ],
+            "total": len(enriched),
         })
     finally:
         db.close()
