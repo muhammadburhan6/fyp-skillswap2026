@@ -3,4 +3,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# Set here so it overrides any dashboard start command: those ran without a
+# shell, so a literal "$PORT" reached gunicorn and killed the container at boot.
+# The port is resolved inside gunicorn.conf.py instead.
+startCommand = "gunicorn -c gunicorn.conf.py app:app"
 restartPolicyType = "ON_FAILURE"

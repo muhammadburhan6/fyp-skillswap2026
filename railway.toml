@@ -4,5 +4,8 @@ builder = "DOCKERFILE"
 dockerfilePath = "Dockerfile"
 
 [deploy]
+# See backend/railway.toml — the port is resolved in gunicorn.conf.py because
+# Railway runs the start command without a shell.
+startCommand = "gunicorn -c gunicorn.conf.py app:app"
 # No healthcheck — previous Railway healthchecks were failing cold starts.
 restartPolicyType = "ON_FAILURE"

@@ -16,5 +16,6 @@ COPY backend/ .
 
 EXPOSE 8080
 
-# Use shell form so $PORT expands. Long timeout for cold starts.
-CMD exec gunicorn --worker-class eventlet -w 1 --bind 0.0.0.0:${PORT:-8080} --timeout 120 --keep-alive 5 app:app
+# Bind/timeouts live in gunicorn.conf.py — the start command must not depend on
+# shell expansion, which Railway does not perform.
+CMD ["gunicorn", "-c", "gunicorn.conf.py", "app:app"]
