@@ -291,6 +291,7 @@ export default function Admin() {
   const [stats, setStats] = useState(null)
   const [users, setUsers] = useState([])
   const [reports, setReports] = useState([])
+  const [reportsFailed, setReportsFailed] = useState(false)
   const [disputes, setDisputes] = useState([])
   const [analytics, setAnalytics] = useState(null)
   const [error, setError] = useState('')
@@ -326,6 +327,8 @@ export default function Admin() {
     if (s.status === 'fulfilled') setStats(s.value)
     if (r.status === 'fulfilled') setReports(r.value.reports || [])
     if (d.status === 'fulfilled') setDisputes(d.value.disputes || [])
+    // Distinguish "no reports exist" from "reports never loaded".
+    setReportsFailed(r.status === 'rejected')
 
     const failed = [s, r, d].filter((x) => x.status === 'rejected')
     if (failed.length === 3) {
@@ -584,7 +587,11 @@ export default function Admin() {
             <p className="page-subtitle">Review reports of spam, harassment, or inappropriate user conduct.</p>
             <div className="mt-8 space-y-4">
               {reports.length === 0 && (
-                <div className="card p-8 text-center text-mutedForeground">No user reports submitted yet.</div>
+                <div className="card p-8 text-center text-mutedForeground">
+                  {reportsFailed
+                    ? 'Could not load reports from the server. Everything else on this page is up to date.'
+                    : 'No user reports submitted yet.'}
+                </div>
               )}
               {reports.map((r) => (
                 <div key={r.id} className="card p-6">
