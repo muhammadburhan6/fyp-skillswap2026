@@ -22,7 +22,12 @@ export function ReportModal({ targetUser, onClose, onSuccess }) {
       onSuccess?.()
       onClose()
     } catch (err) {
-      setError(err?.response?.data?.error || 'Failed to submit report. Please try again.')
+      // A 404 here means the server has no /reports route (outdated backend
+      // deploy) — retrying will never help, so say so instead.
+      const fallback = err?.response?.status === 404
+        ? 'Reporting is unavailable on the server right now. Please try later.'
+        : 'Failed to submit report. Please try again.'
+      setError(err?.response?.data?.error || fallback)
     } finally {
       setLoading(false)
     }

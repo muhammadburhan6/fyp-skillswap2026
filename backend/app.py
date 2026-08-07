@@ -5,6 +5,8 @@ import eventlet
 
 eventlet.monkey_patch()
 
+import os
+
 from flask import Flask, jsonify, request, send_from_directory
 from flask_cors import CORS
 from flask_socketio import SocketIO, emit, join_room, leave_room
@@ -128,6 +130,10 @@ def create_app(config_class: type = Config) -> Flask:
             "user_count": user_count,
             "db_path": db_path or None,
             "persistent": bool(db_path.startswith("/data")),
+            # Which commit is actually running. Railway injects this at build
+            # time; without it a stale deploy looks identical to a fresh one
+            # and missing routes get misread as app bugs.
+            "commit": (os.getenv("RAILWAY_GIT_COMMIT_SHA") or "")[:7] or None,
         }), 200
 
     app.register_blueprint(auth_bp, url_prefix="/api/auth")

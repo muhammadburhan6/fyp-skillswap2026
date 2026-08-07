@@ -315,21 +315,26 @@ export default function Admin() {
       .then((a) => setAnalytics(a))
       .catch(() => setAnalytics(null))
       .finally(() => setAnalyticsLoading(false))
-    try {
-      const [s, r, d] = await Promise.all([
-        api.adminStats(),
-        api.adminReports(),
-        api.adminDisputes(),
-      ])
-      setStats(s)
-      setReports(r.reports || [])
-      setDisputes(d.disputes || [])
-      setError('')
-    } catch (err) {
+    // Settled (not all-or-nothing): one module failing — e.g. an endpoint the
+    // deployed backend doesn't have yet — must not blank the modules that did
+    // load. Only report an error if every module failed.
+    const [s, r, d] = await Promise.allSettled([
+      api.adminStats(),
+      api.adminReports(),
+      api.adminDisputes(),
+    ])
+    if (s.status === 'fulfilled') setStats(s.value)
+    if (r.status === 'fulfilled') setReports(r.value.reports || [])
+    if (d.status === 'fulfilled') setDisputes(d.value.disputes || [])
+
+    const failed = [s, r, d].filter((x) => x.status === 'rejected')
+    if (failed.length === 3) {
+      const err = failed[0].reason
       setError(err?.userMessage || err?.response?.data?.error || 'Failed to load admin data')
-    } finally {
-      setLoading(false)
+    } else {
+      setError('')
     }
+    setLoading(false)
   }
 
   useEffect(() => { refresh() }, [])
